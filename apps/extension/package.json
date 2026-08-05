@@ -5,8 +5,8 @@
   "description": "Chrome Extension (Manifest V3) for browser activity monitoring and visual context capture",
   "type": "module",
   "scripts": {
-    "build": "echo 'Build system will be configured in Phase 1'",
-    "dev": "echo 'Dev server will be configured in Phase 1'",
+    "build": "npx tsx scripts/build.ts",
+    "dev": "npx tsx scripts/build.ts && echo '📦 Load dist/ as unpacked extension in Chrome'",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
@@ -14,6 +14,9 @@
     "@visual-ai/shared-types": "*"
   },
   "devDependencies": {
+    "@types/chrome": "^0.0.287",
+    "concurrently": "^9.1.2",
+    "esbuild": "^0.25.4",
     "typescript": "^5.5.0"
   }
 }
