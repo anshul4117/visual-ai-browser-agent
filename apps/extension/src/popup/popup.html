@@ -13,25 +13,40 @@
       <span class="popup-subtitle">Browser Agent</span>
     </header>
 
+    <!-- Connection & Status Section -->
     <div class="status-section">
       <div class="status-row">
         <span class="status-label">Status</span>
         <span id="status-indicator" class="status-badge status-active">Active</span>
       </div>
+      <div class="status-row">
+        <span class="status-label">Backend Connection</span>
+        <span id="connection-indicator" class="status-badge connection-connected">Connected</span>
+      </div>
     </div>
 
+    <!-- Backend URL Configuration Section -->
+    <div class="config-section">
+      <label for="backend-url-input" class="config-label">Backend Server URL</label>
+      <div class="config-input-group">
+        <input type="text" id="backend-url-input" class="config-input" placeholder="http://localhost:3000" />
+        <button id="btn-save-url" class="btn btn-secondary btn-sm" type="button">Save</button>
+      </div>
+    </div>
+
+    <!-- Statistics Section -->
     <div class="info-section">
       <div class="info-row">
-        <span class="info-label">Session</span>
+        <span class="info-label">Session ID</span>
         <span id="session-id" class="info-value mono">—</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Events</span>
-        <span id="event-count" class="info-value">0</span>
+        <span class="info-label">Offline Queue</span>
+        <span id="queued-count" class="info-value">0 events</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Last Event</span>
-        <span id="last-event-type" class="info-value event-type">—</span>
+        <span class="info-label">Last Sync</span>
+        <span id="last-sync-time" class="info-value">—</span>
       </div>
       <div class="info-row">
         <span class="info-label">Current Tab</span>
@@ -39,9 +54,11 @@
       </div>
     </div>
 
+    <!-- Primary Action Buttons -->
     <div class="actions-section">
+      <button id="btn-sync-now" class="btn btn-success" type="button">Sync Now</button>
       <button id="btn-export" class="btn btn-primary" type="button">Export JSON</button>
-      <button id="btn-clear" class="btn btn-danger" type="button">Clear Events</button>
+      <button id="btn-clear" class="btn btn-danger" type="button">Clear Queue</button>
     </div>
 
     <footer class="popup-footer">

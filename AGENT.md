@@ -16,7 +16,7 @@ Original assignment:
 
 ## Current Phase
 
-Phase 4 — Database Persistence (Complete)
+Phase 5 — Extension → Backend Integration (Complete)
 
 ## Architecture Constraints
 

@@ -62,19 +62,30 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Efficient `insertMany` batch insertion & automated session metadata updates
 - [x] Graceful database connection & fallback handling
 
-## Phase 5 — Visual Context
+## Phase 5 — Extension → Backend Integration ✅
+
+- [x] Extension network client (`apps/extension/src/network/client.ts`)
+- [x] Configurable backend URL with `chrome.storage.sync` (default: `http://localhost:3000`)
+- [x] Temporary offline event queue in `chrome.storage.local`
+- [x] Real-time queue flushing via `POST /api/events/batch`
+- [x] Exponential backoff retry strategy for failed uploads
+- [x] Popup connection status badge (`Connected`, `Syncing`, `Offline`, `Error`)
+- [x] Popup manual **Sync Now** button & **Backend Server URL** config input
+- [x] Offline event queue removal upon successful upload
+
+## Phase 6 — Visual Context
 
 - [ ] Screenshot capture OR DOM snapshot
 - [ ] Associate visual data with events
 - [ ] Storage strategy for visual data
 
-## Phase 6 — AI Processing
+## Phase 7 — AI Processing
 
 - [ ] Event summarization
 - [ ] Activity classification
 - [ ] Timeline generation
 
-## Phase 7 — Dashboard
+## Phase 8 — Dashboard
 
 - [ ] Activity timeline
 - [ ] Session view
@@ -82,7 +93,7 @@ Master checklist for the Visual AI Browser Agent project.
 - [ ] Screenshot preview
 - [ ] Search
 
-## Phase 8 — Production Polish
+## Phase 9 — Production Polish
 
 - [ ] Error handling
 - [ ] Retry queue

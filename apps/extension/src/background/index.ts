@@ -2,11 +2,11 @@
  * Background Service Worker
  *
  * Central hub of the Chrome extension. Handles:
- * - Messages from content scripts (PAGE_LOADED, CLICK, SCROLL, VISIBILITY_CHANGED)
- * - Tab activation/update events from Chrome APIs
- * - Session management via chrome.storage.session
- * - Event persistence via event-logger module
- * - Popup requests (GET_STATUS, CLEAR_EVENTS, EXPORT_EVENTS)
+ * - Message router (content script events & popup actions)
+ * - Tab activation/update listeners
+ * - Local offline event queueing (chrome.storage.local)
+ * - Real-time synchronization pipeline to Express backend API
+ * - Exponential backoff retry queue & automatic reconnection flushing
  *
  * IMPORTANT (from AGENT.md):
  * - Service workers are ephemeral — never store state in global variables
@@ -17,9 +17,12 @@
 import type {
   ExtensionMessage,
   StatusResponse,
+  SyncResponse,
+  SetBackendUrlResponse,
   ClearEventsResponse,
   ExportEventsResponse,
   AckResponse,
+  ConnectionStatus,
   StoredEvent,
 } from '../messaging/types.js';
 
@@ -27,27 +30,58 @@ import {
   createEvent,
   appendEvent,
   getStoredEvents,
+  removeEvents,
   getEventCount,
   getLastEvent,
   clearEvents,
 } from '../storage/event-logger.js';
 
+import {
+  getBackendUrl,
+  setBackendUrl,
+  sendBatchEvents,
+  checkServerHealth,
+} from '../network/client.js';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const SYNC_STATE_KEY = 'vai_sync_state';
+
+interface SyncState {
+  connectionStatus: ConnectionStatus;
+  lastSyncTime: string | null;
+  retryAttempt: number;
+}
+
+// ─── Sync State Management ───────────────────────────────────────────────────
+
+async function getSyncState(): Promise<SyncState> {
+  const data = await chrome.storage.session.get([SYNC_STATE_KEY]);
+  if (data[SYNC_STATE_KEY]) {
+    return data[SYNC_STATE_KEY] as SyncState;
+  }
+  return {
+    connectionStatus: 'offline',
+    lastSyncTime: null,
+    retryAttempt: 0,
+  };
+}
+
+async function setSyncState(patch: Partial<SyncState>): Promise<SyncState> {
+  const current = await getSyncState();
+  const updated: SyncState = { ...current, ...patch };
+  await chrome.storage.session.set({ [SYNC_STATE_KEY]: updated });
+  return updated;
+}
+
 // ─── Session Management ─────────────────────────────────────────────────────
 
-/**
- * Generate a unique session ID.
- * Format: vai_<timestamp>_<random>
- */
 function generateSessionId(): string {
   const timestamp = Date.now().toString(36);
   const random = Math.random().toString(36).substring(2, 8);
   return `vai_${timestamp}_${random}`;
 }
 
-/**
- * Ensure a session exists in chrome.storage.session.
- * Creates one if none exists, and logs a SESSION_STARTED event.
- */
 async function ensureSession(): Promise<string> {
   const data = await chrome.storage.session.get(['sessionId']);
   if (data.sessionId) {
@@ -72,48 +106,99 @@ async function ensureSession(): Promise<string> {
     timestamp: now,
     metadata: {},
   });
-  await appendEvent(event);
+  await queueAndSync(event);
 
   console.log(`[Visual AI] New session started: ${sessionId}`);
   return sessionId;
 }
 
-// ─── Event Logging Helpers ───────────────────────────────────────────────────
+// ─── Synchronization Pipeline ────────────────────────────────────────────────
+
+let isSyncInProgress = false;
 
 /**
- * Log an event and update the session metadata in chrome.storage.session.
+ * Flush local offline event queue to backend API.
  */
-async function logEvent(
-  sessionId: string,
-  eventType: string,
-  url: string,
-  title: string,
-  metadata: Record<string, unknown>
-): Promise<void> {
-  const event = createEvent({
-    sessionId,
-    url,
-    title,
-    eventType,
-    timestamp: new Date().toISOString(),
-    metadata,
-  });
+async function flushQueue(): Promise<{ success: boolean; syncedCount: number; error?: string }> {
+  if (isSyncInProgress) {
+    return { success: false, syncedCount: 0, error: 'Sync already in progress' };
+  }
 
-  const count = await appendEvent(event);
+  isSyncInProgress = true;
+  await setSyncState({ connectionStatus: 'syncing' });
 
-  // Update session metadata (last event type for popup display)
-  await chrome.storage.session.set({
-    lastEventType: eventType,
-    lastEventCount: count,
-  });
+  try {
+    const queue = await getStoredEvents();
+    if (queue.length === 0) {
+      await setSyncState({ connectionStatus: 'connected', retryAttempt: 0 });
+      isSyncInProgress = false;
+      return { success: true, syncedCount: 0 };
+    }
+
+    const backendUrl = await getBackendUrl();
+    const result = await sendBatchEvents(queue, backendUrl);
+
+    if (result.success) {
+      // Remove synced events from local queue
+      await removeEvents(queue);
+      const now = new Date().toISOString();
+
+      await setSyncState({
+        connectionStatus: 'connected',
+        lastSyncTime: now,
+        retryAttempt: 0,
+      });
+
+      console.log(`[Visual AI] Sync successful: ${queue.length} events uploaded to ${backendUrl}`);
+      isSyncInProgress = false;
+      return { success: true, syncedCount: queue.length };
+    } else {
+      // Upload failed — handle exponential backoff retry
+      const currentState = await getSyncState();
+      const nextAttempt = currentState.retryAttempt + 1;
+      await setSyncState({
+        connectionStatus: 'offline',
+        retryAttempt: nextAttempt,
+      });
+
+      scheduleRetry(nextAttempt);
+      console.warn(`[Visual AI] Sync failed: ${result.error}. Scheduled retry attempt #${nextAttempt}`);
+      isSyncInProgress = false;
+      return { success: false, syncedCount: 0, error: result.error };
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown sync error';
+    await setSyncState({ connectionStatus: 'error' });
+    isSyncInProgress = false;
+    return { success: false, syncedCount: 0, error: msg };
+  }
+}
+
+/**
+ * Schedule exponential backoff retry for failed queue flushes.
+ * Delays: 2s, 4s, 8s, 16s, 32s, max 60s.
+ */
+function scheduleRetry(attempt: number): void {
+  const delayMs = Math.min(Math.pow(2, attempt) * 1000, 60000);
+  setTimeout(() => {
+    (async () => {
+      console.log(`[Visual AI] Retrying queue sync (attempt #${attempt})...`);
+      await flushQueue();
+    })();
+  }, delayMs);
+}
+
+/**
+ * Queue an event locally and initiate background sync.
+ */
+async function queueAndSync(event: StoredEvent): Promise<void> {
+  await appendEvent(event);
+  // Trigger background flush asynchronously without blocking caller
+  flushQueue().catch((err) => console.debug('[Visual AI] Background flush error:', err));
 }
 
 // ─── Deduplication ───────────────────────────────────────────────────────────
 
-/**
- * Track last PAGE_LOADED URL to avoid duplicate events when content script
- * fires multiple times on the same page (e.g., SPA navigation).
- */
 async function isDuplicatePageLoad(url: string): Promise<boolean> {
   const data = await chrome.storage.session.get(['lastPageLoadedUrl']);
   if (data.lastPageLoadedUrl === url) {
@@ -125,7 +210,13 @@ async function isDuplicatePageLoad(url: string): Promise<boolean> {
 
 // ─── Message Handler ─────────────────────────────────────────────────────────
 
-type MessageResponse = StatusResponse | ClearEventsResponse | ExportEventsResponse | AckResponse;
+type MessageResponse =
+  | StatusResponse
+  | SyncResponse
+  | SetBackendUrlResponse
+  | ClearEventsResponse
+  | ExportEventsResponse
+  | AckResponse;
 
 chrome.runtime.onMessage.addListener(
   (
@@ -141,13 +232,15 @@ chrome.runtime.onMessage.addListener(
           case 'PAGE_LOADED': {
             const isDupe = await isDuplicatePageLoad(message.data.url);
             if (!isDupe) {
-              await logEvent(
+              const event = createEvent({
                 sessionId,
-                'page_load',
-                message.data.url,
-                message.data.title,
-                {}
-              );
+                url: message.data.url,
+                title: message.data.title,
+                eventType: 'page_load',
+                timestamp: message.data.timestamp,
+                metadata: {},
+              });
+              await queueAndSync(event);
               console.log(`[Visual AI] PAGE_LOADED | ${message.data.url}`);
             }
             sendResponse({ received: true });
@@ -155,67 +248,102 @@ chrome.runtime.onMessage.addListener(
           }
 
           case 'CLICK': {
-            await logEvent(
+            const event = createEvent({
               sessionId,
-              'click',
-              message.data.url,
-              message.data.title,
-              {
+              url: message.data.url,
+              title: message.data.title,
+              eventType: 'click',
+              timestamp: message.data.timestamp,
+              metadata: {
                 selector: message.data.selector,
                 tagName: message.data.tagName,
                 innerText: message.data.innerText,
-              }
-            );
+              },
+            });
+            await queueAndSync(event);
             sendResponse({ received: true });
             break;
           }
 
           case 'SCROLL': {
-            await logEvent(
+            const event = createEvent({
               sessionId,
-              'scroll',
-              message.data.url,
-              message.data.title,
-              {
+              url: message.data.url,
+              title: message.data.title,
+              eventType: 'scroll',
+              timestamp: message.data.timestamp,
+              metadata: {
                 scrollPercentage: message.data.scrollPercentage,
-              }
-            );
+              },
+            });
+            await queueAndSync(event);
             sendResponse({ received: true });
             break;
           }
 
           case 'VISIBILITY_CHANGED': {
-            await logEvent(
+            const event = createEvent({
               sessionId,
-              'visibility_changed',
-              message.data.url,
-              message.data.title,
-              {
+              url: message.data.url,
+              title: message.data.title,
+              eventType: 'visibility_changed',
+              timestamp: message.data.timestamp,
+              metadata: {
                 visibilityState: message.data.visibilityState,
-              }
-            );
+              },
+            });
+            await queueAndSync(event);
             sendResponse({ received: true });
             break;
           }
 
-          case 'GET_STATUS': {
+          case 'GET_STATUS':
+          case 'GET_SYNC_STATUS': {
             const count = await getEventCount();
             const lastEvent = await getLastEvent();
+            const syncState = await getSyncState();
+            const backendUrl = await getBackendUrl();
             const sessionData = await chrome.storage.session.get(['isActive']);
+
+            // Quick health check to update connectionStatus accurately
+            const isHealthy = await checkServerHealth(backendUrl);
+            const currentStatus: ConnectionStatus = isHealthy ? 'connected' : 'offline';
 
             const response: StatusResponse = {
               isActive: (sessionData.isActive as boolean) ?? true,
               sessionId,
               eventCount: count,
               lastEventType: lastEvent?.eventType ?? null,
+              connectionStatus: isSyncInProgress ? 'syncing' : currentStatus,
+              queuedCount: count,
+              lastSyncTime: syncState.lastSyncTime,
+              backendUrl,
             };
             sendResponse(response);
             break;
           }
 
+          case 'SYNC_NOW': {
+            const result = await flushQueue();
+            sendResponse({
+              success: result.success,
+              syncedCount: result.syncedCount,
+              error: result.error,
+            });
+            break;
+          }
+
+          case 'SET_BACKEND_URL': {
+            const newUrl = await setBackendUrl(message.url);
+            // Immediately test connection and attempt flush
+            await flushQueue();
+            sendResponse({ success: true, url: newUrl });
+            break;
+          }
+
           case 'CLEAR_EVENTS': {
             await clearEvents();
-            console.log('[Visual AI] Events cleared');
+            console.log('[Visual AI] Offline queue cleared');
             sendResponse({ success: true });
             break;
           }
@@ -244,25 +372,23 @@ chrome.runtime.onMessage.addListener(
 
 // ─── Tab Events ──────────────────────────────────────────────────────────────
 
-/**
- * Detect tab activation (user switches between tabs).
- * Logs a TAB_ACTIVATED event with the new tab's URL.
- */
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const sessionId = await ensureSession();
     const tab = await chrome.tabs.get(activeInfo.tabId);
 
     if (tab.url && !tab.url.startsWith('chrome://')) {
-      await logEvent(
+      const event = createEvent({
         sessionId,
-        'tab_switch',
-        tab.url,
-        tab.title || '',
-        {
+        url: tab.url,
+        title: tab.title || '',
+        eventType: 'tab_switch',
+        timestamp: new Date().toISOString(),
+        metadata: {
           previousTabId: activeInfo.tabId,
-        }
-      );
+        },
+      });
+      await queueAndSync(event);
       console.log(`[Visual AI] TAB_ACTIVATED | ${tab.url}`);
     }
   } catch (error) {
@@ -270,41 +396,39 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   }
 });
 
-/**
- * Detect tab URL/title updates.
- * Only fires when the tab has fully loaded (status === 'complete').
- */
 chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
-  // Only track completed loads with a real URL
   if (changeInfo.status !== 'complete') return;
   if (!tab.url || tab.url.startsWith('chrome://')) return;
 
   try {
     const sessionId = await ensureSession();
-
-    await logEvent(
+    const event = createEvent({
       sessionId,
-      'url_change',
-      tab.url,
-      tab.title || '',
-      {
+      url: tab.url,
+      title: tab.title || '',
+      eventType: 'url_change',
+      timestamp: new Date().toISOString(),
+      metadata: {
         previousUrl: '',
-      }
-    );
+      },
+    });
+    await queueAndSync(event);
     console.log(`[Visual AI] TAB_UPDATED | ${tab.url}`);
   } catch (error) {
     console.error('[Visual AI] Error on tab update:', error);
   }
 });
 
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
+// ─── Lifecycle & Network Reconnection Listener ───────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
   const sessionId = await ensureSession();
   console.log(`[Visual AI] Extension installed. Session: ${sessionId}`);
+  await flushQueue();
 });
 
-// Ensure session on service worker startup (after idle termination)
+// Initial flush on service worker startup
 (async () => {
   await ensureSession();
+  await flushQueue();
 })();

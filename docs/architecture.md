@@ -8,34 +8,39 @@ The system follows a three-tier architecture:
 2. **Backend API** — Receives, validates, and routes events
 3. **Database** — Persists events and sessions in MongoDB
 
-## Extension Architecture
+## Extension Architecture & Synchronization Pipeline
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                   Chrome Extension                         │
-│                                                            │
-│  ┌─────────────────┐     ┌──────────────────────────────┐ │
-│  │  Content Script  │────▶│  Background Service Worker   │ │
-│  │                  │     │                              │ │
-│  │  • PAGE_LOADED   │     │  • Message handler           │ │
-│  │  • CLICK         │     │  • Event Logger (storage)    │ │
-│  │  • SCROLL        │     │  • Session management        │ │
-│  │  • VISIBILITY    │     │  • Tab switch / update events│ │
-│  └─────────────────┘     │  • API communication         │ │
-│                           └──────────────┬───────────────┘ │
-│  ┌─────────────────┐                     │                 │
-│  │  Popup UI       │─── GET_STATUS ─────▶│                 │
-│  │  • Status badge │─── EXPORT_EVENTS ──▶│                 │
-│  │  • Session ID   │─── CLEAR_EVENTS ───▶│                 │
-│  │  • Event count  │                     │                 │
-│  │  • Last event   │                     │                 │
-│  │  • Current URL  │                     │                 │
-│  └─────────────────┘                     │                 │
-└──────────────────────────────────────────┼─────────────────┘
-                                           │
-                                    HTTP REST API
-                                           │
-                                           ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                          Chrome Extension                              │
+│                                                                        │
+│  ┌─────────────────┐           ┌────────────────────────────────────┐  │
+│  │  Content Script  │──sendMessage▶│  Background Service Worker         │  │
+│  │  • PAGE_LOADED   │           │  • Tab listeners (switch/update)   │  │
+│  │  • CLICK         │           │  • Session Manager                 │  │
+│  │  • SCROLL        │           │  • Message Router                  │  │
+│  │  • VISIBILITY    │           │  • Sync Pipeline & Queue Manager   │  │
+│  └─────────────────┘           └──────────────┬─────────────────────┘  │
+│  ┌─────────────────┐                          │                        │
+│  │  Popup UI       │─── GET_STATUS ───────────┤                        │
+│  │  • Status badge │─── SYNC_NOW ─────────────┤                        │
+│  │  • Connection   │─── SET_BACKEND_URL ──────┤                        │
+│  │  • Queue count  │                          ▼                        │
+│  │  • Last sync    │           ┌────────────────────────────────────┐  │
+│  │  • URL config   │           │  Offline Queue (storage.local)     │  │
+│  └─────────────────┘           └──────────────┬─────────────────────┘  │
+│                                               │                        │
+│                                               ▼                        │
+│                                ┌────────────────────────────────────┐  │
+│                                │  Network Client (network/client.ts)│  │
+│                                │  • Configurable URL (storage.sync) │  │
+│                                │  • Health checks & timeouts        │  │
+│                                └──────────────┬─────────────────────┘  │
+└───────────────────────────────────────────────┼────────────────────────┘
+                                                │
+                                    HTTP POST /api/events/batch
+                                                │
+                                                ▼
 ```
 
 ### Extension File Structure
@@ -46,22 +51,42 @@ apps/extension/
 │   └── build.ts              # esbuild build script
 ├── src/
 │   ├── background/
-│   │   └── index.ts          # Service worker — message handling, tab listeners, session mgmt
+│   │   └── index.ts          # Service worker — message handling, tab listeners, queue & sync pipeline
 │   ├── content/
 │   │   └── index.ts          # Content script — PAGE_LOADED, CLICK, SCROLL, VISIBILITY
 │   ├── messaging/
-│   │   └── types.ts          # Typed message protocol & StoredEvent model
+│   │   └── types.ts          # Typed message protocol & Sync types
+│   ├── network/
+│   │   └── client.ts         # Network client — fetchWithTimeout, health checks, POST batch/single
 │   ├── storage/
-│   │   └── event-logger.ts   # Persistent event storage module (chrome.storage.local)
+│   │   └── event-logger.ts   # Temporary offline event queue module (chrome.storage.local)
 │   ├── popup/
-│   │   ├── popup.html        # Popup UI (status, export, clear)
-│   │   ├── popup.css         # Dark theme styles & action buttons
-│   │   └── popup.ts          # Popup logic — status display, JSON export, clear storage
+│   │   ├── popup.html        # Popup UI (status, connection badge, URL config, sync now, export)
+│   │   ├── popup.css         # Dark theme styles & connection badges
+│   │   └── popup.ts          # Popup logic — status polling, manual sync, backend URL save
 │   └── manifest.json         # Manifest V3 config
 ├── dist/                     # Build output (load as unpacked extension)
 ├── package.json
 └── tsconfig.json
 ```
+
+### Synchronization Architecture & Queue Lifecycle
+
+1. **Event Capture & Queueing**:
+   - Content scripts capture DOM events (`click`, `scroll`, `visibilitychange`, `page_load`).
+   - Content script sends events to Background Service Worker via `chrome.runtime.sendMessage`.
+   - Service worker creates structured `ActivityEvent` objects and appends them to `chrome.storage.local` under key `vai_events` (temporary offline queue).
+
+2. **Automatic Flushing & Batch Transmission**:
+   - Upon appending new events, the background worker triggers `flushQueue()`.
+   - `flushQueue()` retrieves queued events, inspects the configured backend URL from `chrome.storage.sync` (default: `http://localhost:3000`), and issues a `POST /api/events/batch` HTTP request with a 5000ms AbortController timeout.
+   - On `201 Created` response: successfully synced events are removed from `chrome.storage.local`, `lastSyncTime` timestamp is updated, and connection status is set to `connected`.
+
+3. **Exponential Backoff Retry Strategy**:
+   - If server is unreachable or responds with error, connection status updates to `offline` or `error`.
+   - Queued events remain safely in `chrome.storage.local` to prevent data loss.
+   - Background worker schedules a retry with exponential backoff: `delay = Math.min(2^attempt * 1000, 60000)` ms (2s, 4s, 8s, 16s, 32s, max 60s).
+   - Once connectivity is restored or manual **Sync Now** is pressed, the queue is flushed automatically.
 
 ## Backend Architecture
 
@@ -97,48 +122,7 @@ apps/extension/
                          └──────────────────────┘
 ```
 
-### Server File Structure
-
-```
-apps/server/
-├── Dockerfile                # Multi-stage Docker build
-├── package.json
-├── tsconfig.json
-└── src/
-    ├── index.ts              # Entry point — connects DB, loads env & starts HTTP server
-    ├── app.ts                # Express app configuration & middleware pipeline
-    ├── database/
-    │   └── connection.ts     # Mongoose connection manager & event listeners
-    ├── models/
-    │   ├── event.model.ts    # Mongoose schema & model for Events
-    │   └── session.model.ts  # Mongoose schema & model for Sessions
-    ├── routes/
-    │   ├── health.routes.ts  # /api/health route
-    │   └── events.routes.ts  # /api/events & /api/events/batch routes
-    ├── controllers/
-    │   ├── health.controller.ts # Health check logic
-    │   └── events.controller.ts # Single/batch event ingestion & query controllers
-    ├── services/
-    │   ├── event-store.interface.ts # Storage abstraction interface
-    │   ├── mongo-event-store.ts     # Mongoose implementation
-    │   ├── in-memory-event-store.ts # Fallback in-memory implementation
-    │   └── event-store.service.ts   # Delegating singleton exporter
-    ├── middleware/
-    │   ├── logger.middleware.ts   # Request logger (method, path, status, duration)
-    │   ├── error.middleware.ts    # Global error handler & 404 handler
-    │   └── validate.middleware.ts # Request body validation for single & batch events
-    └── types/
-        └── index.ts          # Query parameters & pagination types
-```
-
-### Storage Abstraction & Polymorphism Pattern
-
-- **`EventStore` Interface**: Standard interface defining `add`, `addBatch`, `getBySession`, and `query` methods.
-- **`MongoEventStore`**: Mongoose-backed persistence layer writing documents to MongoDB `events` and updating session stats in `sessions`.
-- **`InMemoryEventStore`**: Fallback in-memory storage used when database is offline or unconfigured.
-- **`DelegatingEventStore`**: Singleton proxy dynamically delegating requests to `MongoEventStore` when MongoDB is connected or `InMemoryEventStore` otherwise.
-
-## Database Architecture (Phase 4)
+## Database Architecture
 
 See [Database Schema](database.md) for collection definitions.
 
@@ -154,14 +138,14 @@ Content Script / Background Tab Listeners
     ▼
 Background Service Worker
     │
-    │ Log event locally (chrome.storage.local)
+    │ 1. Append to offline queue (chrome.storage.local)
+    │ 2. Flush queue via network/client.ts
     ▼
-POST /api/events  OR  POST /api/events/batch
+HTTP POST /api/events/batch (Fetch with 5s timeout)
+    │
+    ├── (If server online: 201 Created) ──▶ Remove events from storage.local & update lastSyncTime
+    └── (If server offline/error)       ──▶ Keep in storage.local & schedule exponential retry (2s..60s)
     │
     ▼
-Express API (apps/server)
-    │
-    │ Validate payload & delegate to EventStore
-    ▼
-MongoEventStore (Mongoose) ──▶ MongoDB (events & sessions collections)
+Express API (apps/server) ──▶ MongoEventStore (Mongoose) ──▶ MongoDB (events & sessions)
 ```

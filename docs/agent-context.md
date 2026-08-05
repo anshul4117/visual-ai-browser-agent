@@ -28,16 +28,19 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Multi-Stage Dockerfile for Server | ✅ Complete | 3 |
 | MongoDB Database Layer & Mongoose Connection | ✅ Complete | 4 |
 | Event & Session Mongoose Models & Schemas | ✅ Complete | 4 |
-| Polymorphic EventStore Abstraction (`MongoEventStore` + `InMemoryEventStore`) | ✅ Complete | 4 |
-| Database Connection Resilience & Graceful Shutdown | ✅ Complete | 4 |
-| Visual context | 🔲 Not started | 5 |
-| AI processing | 🔲 Not started | 6 |
-| Dashboard | 🔲 Not started | 7 |
-| Production polish | 🔲 Not started | 8 |
+| Polymorphic EventStore Abstraction | ✅ Complete | 4 |
+| Real-Time Extension-to-Backend Sync Pipeline | ✅ Complete | 5 |
+| Network Client with Timeout & Health Checks | ✅ Complete | 5 |
+| Offline Queue with Exponential Backoff Retry | ✅ Complete | 5 |
+| Configurable Backend Server URL (`chrome.storage.sync`) | ✅ Complete | 5 |
+| Connection Status & Manual Sync in Popup UI | ✅ Complete | 5 |
+| Visual context | 🔲 Not started | 6 |
+| AI processing | 🔲 Not started | 7 |
+| Dashboard | 🔲 Not started | 8 |
 
 ## Pending Tasks
 
-Next phase: **Phase 5 — Visual Context**
+Next phase: **Phase 6 — Visual Context**
 
 - Browser screenshot capture or DOM snapshot module in Chrome Extension
 - Associate visual context with activity events
@@ -47,11 +50,12 @@ Next phase: **Phase 5 — Visual Context**
 
 | Directory | Owner | Purpose |
 |-----------|-------|---------|
-| `apps/extension/src/background/` | Extension | Service worker, event handling, tab listeners |
+| `apps/extension/src/background/` | Extension | Service worker, sync manager, tab listeners |
 | `apps/extension/src/content/` | Extension | DOM event capture (click, scroll, visibility) |
+| `apps/extension/src/network/` | Extension | Network client (`client.ts`) for backend sync |
 | `apps/extension/src/messaging/` | Extension | Typed message protocol & StoredEvent model |
-| `apps/extension/src/storage/` | Extension | Persistent event logger (`event-logger.ts`) |
-| `apps/extension/src/popup/` | Extension | UI controls, statistics, export & clear |
+| `apps/extension/src/storage/` | Extension | Temporary offline queue logger (`event-logger.ts`) |
+| `apps/extension/src/popup/` | Extension | UI controls, connection status, sync now, URL config |
 | `apps/extension/scripts/` | Extension | Build tooling |
 | `apps/server/src/database/` | Backend | Mongoose connection lifecycle manager |
 | `apps/server/src/models/` | Backend | Mongoose models for `Event` and `Session` |
@@ -79,12 +83,12 @@ Defined in: [docs/database.md](database.md)
 - `events` collection (`EventModel`) — see database.md for schema & indexes
 - `sessions` collection (`SessionModel`) — see database.md for schema & indexes
 
-## Server Build & Storage System
+## Extension Network & Sync Configuration
 
-- **Database:** MongoDB 7 via Mongoose (`mongoose`)
-- **Storage Pattern:** `EventStore` interface with `MongoEventStore` primary and `InMemoryEventStore` fallback
-- **Build Tool:** TypeScript `tsc` outputting to `apps/server/dist/`
-- **Docker:** Multi-stage Alpine Node 20 container linking server with `mongodb` service
+- **Default Backend URL:** `http://localhost:3000` (stored in `chrome.storage.sync` under key `vai_backend_url`)
+- **Offline Queue Key:** `vai_events` in `chrome.storage.local`
+- **Batch Endpoint:** `POST /api/events/batch`
+- **Retry Mechanism:** Exponential backoff (2s, 4s, 8s, 16s, 32s, max 60s)
 
 ## Known Assumptions
 
@@ -92,7 +96,7 @@ Defined in: [docs/database.md](database.md)
 2. AI processing reads from the events collection, does not modify the core event pipeline
 3. User consent is obtained through Chrome extension permission prompts
 4. No user authentication in MVP — optional `userId` field for future use
-5. Server automatically connects to MongoDB via `MONGODB_URI` environment variable, falling back gracefully if database is offline.
+5. Background service worker acts as single synchronization pipeline for all captured browser events.
 
 ## Known Limitations
 

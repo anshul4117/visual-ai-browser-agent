@@ -1,8 +1,8 @@
 /**
- * Event Logger
+ * Event Logger & Offline Storage Queue
  *
- * Reusable module for creating and persisting structured activity events.
- * Stores events in chrome.storage.local as an append-only timeline.
+ * Manages the temporary offline event queue in chrome.storage.local.
+ * Events are queued locally and removed upon successful synchronization to the backend.
  *
  * IMPORTANT (from AGENT.md):
  * - No global state — all state in chrome.storage
@@ -34,7 +34,7 @@ export function createEvent(params: {
     sessionId: params.sessionId,
     url: params.url,
     title: params.title,
-    eventType: params.eventType,
+    eventType: params.eventType as StoredEvent['eventType'],
     timestamp: params.timestamp,
     metadata: params.metadata,
   };
@@ -43,7 +43,7 @@ export function createEvent(params: {
 // ─── Storage Operations ──────────────────────────────────────────────────────
 
 /**
- * Append an event to the stored timeline in chrome.storage.local.
+ * Append an event to the offline queue in chrome.storage.local.
  * Trims oldest events if the timeline exceeds MAX_STORED_EVENTS.
  *
  * Returns the new total event count.
@@ -64,7 +64,7 @@ export async function appendEvent(event: StoredEvent): Promise<number> {
 }
 
 /**
- * Retrieve all stored events.
+ * Retrieve all queued events.
  */
 export async function getStoredEvents(): Promise<StoredEvent[]> {
   const data = await chrome.storage.local.get([STORAGE_KEY]);
@@ -72,7 +72,27 @@ export async function getStoredEvents(): Promise<StoredEvent[]> {
 }
 
 /**
- * Get the count of stored events without loading all data.
+ * Remove specific synced events from the offline queue.
+ * Matches events by unique composite key: sessionId + timestamp + eventType + url.
+ */
+export async function removeEvents(syncedEvents: StoredEvent[]): Promise<number> {
+  if (syncedEvents.length === 0) return await getEventCount();
+
+  const currentEvents = await getStoredEvents();
+  const syncedSet = new Set(
+    syncedEvents.map((e) => `${e.sessionId}|${e.timestamp}|${e.eventType}|${e.url}`)
+  );
+
+  const remainingEvents = currentEvents.filter(
+    (e) => !syncedSet.has(`${e.sessionId}|${e.timestamp}|${e.eventType}|${e.url}`)
+  );
+
+  await chrome.storage.local.set({ [STORAGE_KEY]: remainingEvents });
+  return remainingEvents.length;
+}
+
+/**
+ * Get the count of stored events in queue.
  */
 export async function getEventCount(): Promise<number> {
   const events = await getStoredEvents();
@@ -80,7 +100,7 @@ export async function getEventCount(): Promise<number> {
 }
 
 /**
- * Get the most recently stored event (last in the timeline).
+ * Get the most recently stored event.
  */
 export async function getLastEvent(): Promise<StoredEvent | null> {
   const events = await getStoredEvents();
@@ -88,7 +108,7 @@ export async function getLastEvent(): Promise<StoredEvent | null> {
 }
 
 /**
- * Clear all stored events.
+ * Clear all stored events from queue.
  */
 export async function clearEvents(): Promise<void> {
   await chrome.storage.local.remove([STORAGE_KEY]);
