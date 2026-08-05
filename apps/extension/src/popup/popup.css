@@ -11,7 +11,7 @@ body {
   font-size: 13px;
   color: #e0e0e0;
   background: #1a1a2e;
-  width: 320px;
+  width: 340px;
 }
 
 /* ─── Container ───────────────────────────────────────────────────────────── */
@@ -20,7 +20,7 @@ body {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 /* ─── Header ──────────────────────────────────────────────────────────────── */
@@ -29,7 +29,7 @@ body {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #2a2a4a;
 }
 
@@ -51,7 +51,7 @@ body {
 .status-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .status-row {
@@ -61,16 +61,16 @@ body {
 }
 
 .status-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #999;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .status-badge {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 3px 8px;
   border-radius: 12px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -88,13 +88,76 @@ body {
   border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
+.connection-connected {
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.connection-syncing {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.connection-offline {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ff9800;
+  border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.connection-error {
+  background: rgba(244, 67, 54, 0.15);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+/* ─── Config Section ──────────────────────────────────────────────────────── */
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #16162a;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #2a2a4a;
+}
+
+.config-label {
+  font-size: 11px;
+  color: #aaa;
+  font-weight: 600;
+}
+
+.config-input-group {
+  display: flex;
+  gap: 6px;
+}
+
+.config-input {
+  flex: 1;
+  background: #0f0f1d;
+  border: 1px solid #3a3a60;
+  border-radius: 4px;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: #7c5cff;
+  font-family: monospace;
+}
+
+.config-input:focus {
+  outline: none;
+  border-color: #7c5cff;
+}
+
 /* ─── Info Section ────────────────────────────────────────────────────────── */
 
 .info-section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
   background: #16162a;
   border-radius: 8px;
   border: 1px solid #2a2a4a;
@@ -104,55 +167,47 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .info-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #777;
   flex-shrink: 0;
 }
 
 .info-value {
-  font-size: 12px;
+  font-size: 11px;
   color: #ccc;
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 180px;
+  max-width: 190px;
 }
 
 .mono {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
-  font-size: 11px;
   color: #7c5cff;
 }
 
 .url-text {
-  font-size: 11px;
   color: #aaa;
-}
-
-.event-type {
-  font-size: 11px;
-  font-weight: 600;
-  color: #f0a030;
 }
 
 /* ─── Actions Section ─────────────────────────────────────────────────────── */
 
 .actions-section {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .btn {
   flex: 1;
-  padding: 8px 12px;
+  padding: 7px 10px;
   border: none;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 5px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s ease, transform 0.1s ease;
@@ -172,10 +227,26 @@ body {
   color: #fff;
 }
 
+.btn-secondary {
+  background: #3a3a60;
+  color: #fff;
+}
+
+.btn-success {
+  background: #2e7d32;
+  color: #fff;
+}
+
 .btn-danger {
   background: rgba(244, 67, 54, 0.2);
   color: #f44336;
   border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 10px;
+  flex: none;
 }
 
 /* ─── Footer ──────────────────────────────────────────────────────────────── */
@@ -183,7 +254,7 @@ body {
 .popup-footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px solid #2a2a4a;
 }
 
