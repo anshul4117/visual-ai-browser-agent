@@ -1,21 +1,20 @@
 /**
  * Popup Script
  *
- * Displays extension status, session ID, connection status, queued count, last sync time.
- * Provides controls to change Backend Server URL, trigger Sync Now, export JSON, and clear queue.
- *
- * IMPORTANT (from AGENT.md):
- * - No inline scripts in extension HTML
- * - Use async/await, no .then() chains
+ * Displays extension status, session ID, connection status, queued count, last sync time,
+ * screenshot capture count, and latest capture timestamp.
+ * Provides controls to change Backend Server URL, trigger Sync Now, view latest screenshot, export JSON, and clear queues.
  */
 
 import type {
   GetStatusMessage,
+  GetLatestScreenshotMessage,
   SyncNowMessage,
   SetBackendUrlMessage,
   ClearEventsMessage,
   ExportEventsMessage,
   StatusResponse,
+  GetLatestScreenshotResponse,
   SyncResponse,
   SetBackendUrlResponse,
   ClearEventsResponse,
@@ -30,17 +29,31 @@ const connectionIndicator = document.getElementById('connection-indicator') as H
 const backendUrlInput = document.getElementById('backend-url-input') as HTMLInputElement;
 const btnSaveUrl = document.getElementById('btn-save-url') as HTMLButtonElement;
 const sessionIdElement = document.getElementById('session-id') as HTMLSpanElement;
+const screenshotCountElement = document.getElementById('screenshot-count') as HTMLSpanElement;
+const lastCaptureTimeElement = document.getElementById('last-capture-time') as HTMLSpanElement;
 const queuedCountElement = document.getElementById('queued-count') as HTMLSpanElement;
-const lastSyncTimeElement = document.getElementById('last-sync-time') as HTMLSpanElement;
 const currentUrlElement = document.getElementById('current-url') as HTMLSpanElement;
+const btnViewScreenshot = document.getElementById('btn-view-screenshot') as HTMLButtonElement;
 const btnSyncNow = document.getElementById('btn-sync-now') as HTMLButtonElement;
 const btnExport = document.getElementById('btn-export') as HTMLButtonElement;
 const btnClear = document.getElementById('btn-clear') as HTMLButtonElement;
 
+// Modal Elements
+const screenshotModal = document.getElementById('screenshot-modal') as HTMLDivElement;
+const btnCloseModal = document.getElementById('btn-close-modal') as HTMLButtonElement;
+const screenshotPreviewImg = document.getElementById('screenshot-preview-img') as HTMLImageElement;
+const screenshotMetaText = document.getElementById('screenshot-meta-text') as HTMLParagraphElement;
+
 // ─── Messaging Helper ────────────────────────────────────────────────────────
 
 async function sendMessage<T>(
-  message: GetStatusMessage | SyncNowMessage | SetBackendUrlMessage | ClearEventsMessage | ExportEventsMessage
+  message:
+    | GetStatusMessage
+    | GetLatestScreenshotMessage
+    | SyncNowMessage
+    | SetBackendUrlMessage
+    | ClearEventsMessage
+    | ExportEventsMessage
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(message, (response: T) => {
@@ -65,7 +78,7 @@ function truncateUrl(url: string, maxLength: number = 36): string {
   return url.substring(0, maxLength - 3) + '...';
 }
 
-function formatSyncTime(isoString: string | null): string {
+function formatRelativeTime(isoString: string | null): string {
   if (!isoString) return 'Never';
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return 'Never';
@@ -108,7 +121,7 @@ async function updateUI(): Promise<void> {
     connectionIndicator.textContent = connTextMap[status.connectionStatus] || 'Offline';
     connectionIndicator.className = connClassMap[status.connectionStatus] || 'status-badge connection-offline';
 
-    // Backend URL input (only set if not actively focused by user)
+    // Backend URL input
     if (document.activeElement !== backendUrlInput) {
       backendUrlInput.value = status.backendUrl || 'http://localhost:3000';
     }
@@ -120,11 +133,12 @@ async function updateUI(): Promise<void> {
     sessionIdElement.textContent = displayId;
     sessionIdElement.title = status.sessionId;
 
+    // Screenshot stats
+    screenshotCountElement.textContent = String(status.screenshotCount);
+    lastCaptureTimeElement.textContent = formatRelativeTime(status.lastCaptureTime);
+
     // Queued count
     queuedCountElement.textContent = `${status.queuedCount} item${status.queuedCount === 1 ? '' : 's'}`;
-
-    // Last sync time
-    lastSyncTimeElement.textContent = formatSyncTime(status.lastSyncTime);
 
     // Active Tab URL
     const url = await getActiveTabUrl();
@@ -143,6 +157,26 @@ async function updateUI(): Promise<void> {
 // ─── User Actions ────────────────────────────────────────────────────────────
 
 /**
+ * Handle View Latest Screenshot button.
+ */
+async function handleViewScreenshot(): Promise<void> {
+  try {
+    const res = await sendMessage<GetLatestScreenshotResponse>({ type: 'GET_LATEST_SCREENSHOT' });
+
+    if (res.success && res.screenshot && res.screenshot.dataUrl) {
+      screenshotPreviewImg.src = res.screenshot.dataUrl;
+      screenshotMetaText.textContent = `${res.screenshot.title} (${res.screenshot.width}x${res.screenshot.height})`;
+      screenshotModal.classList.remove('hidden');
+    } else {
+      alert('No screenshot currently available in queue or session.');
+    }
+  } catch (error) {
+    console.error('[Visual AI] View screenshot error:', error);
+    alert('Failed to retrieve latest screenshot.');
+  }
+}
+
+/**
  * Handle manual Sync Now button.
  */
 async function handleSyncNow(): Promise<void> {
@@ -151,11 +185,8 @@ async function handleSyncNow(): Promise<void> {
     btnSyncNow.textContent = 'Syncing...';
 
     const res = await sendMessage<SyncResponse>({ type: 'SYNC_NOW' });
-
     if (res.success) {
       console.log(`[Visual AI] Manual sync complete: ${res.syncedCount} items uploaded`);
-    } else {
-      console.warn('[Visual AI] Manual sync error:', res.error);
     }
   } catch (error) {
     console.error('[Visual AI] Manual sync failed:', error);
@@ -167,7 +198,7 @@ async function handleSyncNow(): Promise<void> {
 }
 
 /**
- * Handle saving new Backend URL configuration.
+ * Handle saving Backend URL configuration.
  */
 async function handleSaveBackendUrl(): Promise<void> {
   const newUrl = backendUrlInput.value.trim();
@@ -220,7 +251,7 @@ async function handleExport(): Promise<void> {
 }
 
 /**
- * Clear offline queue.
+ * Clear offline queues.
  */
 async function handleClear(): Promise<void> {
   try {
@@ -236,12 +267,16 @@ async function handleClear(): Promise<void> {
 document.addEventListener('DOMContentLoaded', async () => {
   await updateUI();
 
+  btnViewScreenshot.addEventListener('click', handleViewScreenshot);
   btnSyncNow.addEventListener('click', handleSyncNow);
   btnSaveUrl.addEventListener('click', handleSaveBackendUrl);
   btnExport.addEventListener('click', handleExport);
   btnClear.addEventListener('click', handleClear);
 
-  // Press Enter in backend URL input to save
+  btnCloseModal.addEventListener('click', () => {
+    screenshotModal.classList.add('hidden');
+  });
+
   backendUrlInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       handleSaveBackendUrl();

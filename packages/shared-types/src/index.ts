@@ -14,12 +14,14 @@
  * Matches docs/database.md eventType field.
  */
 export type EventType =
+  | 'session_started'
   | 'page_load'
   | 'url_change'
   | 'tab_switch'
   | 'click'
   | 'scroll'
   | 'form_interaction'
+  | 'visibility_changed'
   | 'time_on_page';
 
 /**
@@ -35,6 +37,8 @@ export interface EventMetadata {
   innerText?: string;
   /** Scroll position as percentage */
   scrollPercentage?: number;
+  /** Document visibility state */
+  visibilityState?: string;
   /** Duration in milliseconds (time_on_page) */
   duration?: number;
   /** Previous URL (url_change) */
@@ -85,6 +89,39 @@ export interface Session {
   endedAt: string | null;
   /** Session duration in milliseconds */
   duration: number;
+}
+
+// ─── Screenshot / Visual Context ──────────────────────────────────────────────
+
+/**
+ * Visual context screenshot object.
+ * Matches docs/database.md screenshots collection.
+ */
+export interface ScreenshotRecord {
+  screenshotId: string;
+  sessionId: string;
+  eventId?: string;
+  url: string;
+  title: string;
+  capturedAt: string;
+  filePath: string;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * Request payload for POST /api/screenshots
+ */
+export interface CreateScreenshotRequest {
+  screenshotId: string;
+  sessionId: string;
+  eventId?: string;
+  url: string;
+  title: string;
+  capturedAt: string;
+  dataUrl: string;
+  width?: number;
+  height?: number;
 }
 
 // ─── API Contracts ───────────────────────────────────────────────────────────

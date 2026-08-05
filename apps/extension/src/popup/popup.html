@@ -25,6 +25,30 @@
       </div>
     </div>
 
+    <!-- Visual Context Statistics Section -->
+    <div class="info-section">
+      <div class="info-row">
+        <span class="info-label">Session ID</span>
+        <span id="session-id" class="info-value mono">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Screenshots Captured</span>
+        <span id="screenshot-count" class="info-value">0</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Last Screenshot</span>
+        <span id="last-capture-time" class="info-value">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Offline Event Queue</span>
+        <span id="queued-count" class="info-value">0 items</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Current Tab</span>
+        <span id="current-url" class="info-value url-text" title="">—</span>
+      </div>
+    </div>
+
     <!-- Backend URL Configuration Section -->
     <div class="config-section">
       <label for="backend-url-input" class="config-label">Backend Server URL</label>
@@ -34,31 +58,30 @@
       </div>
     </div>
 
-    <!-- Statistics Section -->
-    <div class="info-section">
-      <div class="info-row">
-        <span class="info-label">Session ID</span>
-        <span id="session-id" class="info-value mono">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Offline Queue</span>
-        <span id="queued-count" class="info-value">0 events</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Last Sync</span>
-        <span id="last-sync-time" class="info-value">—</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Current Tab</span>
-        <span id="current-url" class="info-value url-text" title="">—</span>
-      </div>
-    </div>
-
     <!-- Primary Action Buttons -->
     <div class="actions-section">
+      <button id="btn-view-screenshot" class="btn btn-info" type="button">View Screenshot</button>
       <button id="btn-sync-now" class="btn btn-success" type="button">Sync Now</button>
       <button id="btn-export" class="btn btn-primary" type="button">Export JSON</button>
-      <button id="btn-clear" class="btn btn-danger" type="button">Clear Queue</button>
+    </div>
+
+    <!-- Secondary Action -->
+    <div class="actions-secondary">
+      <button id="btn-clear" class="btn btn-danger btn-block" type="button">Clear Local Queues</button>
+    </div>
+
+    <!-- Screenshot Modal Preview -->
+    <div id="screenshot-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Latest Captured Screenshot</h3>
+          <button id="btn-close-modal" class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <img id="screenshot-preview-img" src="" alt="Latest Screenshot" />
+          <p id="screenshot-meta-text" class="modal-caption"></p>
+        </div>
+      </div>
     </div>
 
     <footer class="popup-footer">

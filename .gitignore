@@ -29,6 +29,11 @@ docker-compose.override.yml
 # MongoDB data (local Docker volume)
 mongo-data/
 
+# Uploaded images
+uploads/
+apps/server/uploads/*
+!apps/server/uploads/.gitkeep
+
 # Logs
 *.log
 npm-debug.log*

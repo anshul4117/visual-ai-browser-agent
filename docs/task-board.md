@@ -73,11 +73,15 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Popup manual **Sync Now** button & **Backend Server URL** config input
 - [x] Offline event queue removal upon successful upload
 
-## Phase 6 — Visual Context
+## Phase 6 — Visual Context Capture ✅
 
-- [ ] Screenshot capture OR DOM snapshot
-- [ ] Associate visual data with events
-- [ ] Storage strategy for visual data
+- [x] Visual context capture module (`apps/extension/src/visual/capture.ts`) using `chrome.tabs.captureVisibleTab`
+- [x] Periodic 30s capture scheduler (`apps/extension/src/visual/scheduler.ts`) with window focus check
+- [x] Image utility helper module (`apps/extension/src/visual/image-utils.ts`)
+- [x] Temporary screenshot offline queue (`apps/extension/src/storage/screenshot-logger.ts`)
+- [x] Backend `POST /api/screenshots` endpoint & static `/uploads` serving
+- [x] Screenshot Mongoose model & MongoDB metadata persistence (`apps/server/src/models/screenshot.model.ts`)
+- [x] Popup visual capture statistics & **View Latest Screenshot** preview modal
 
 ## Phase 7 — AI Processing
 

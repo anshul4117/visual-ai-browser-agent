@@ -4,9 +4,9 @@
  * Central hub of the Chrome extension. Handles:
  * - Message router (content script events & popup actions)
  * - Tab activation/update listeners
- * - Local offline event queueing (chrome.storage.local)
- * - Real-time synchronization pipeline to Express backend API
- * - Exponential backoff retry queue & automatic reconnection flushing
+ * - Local offline event queueing & screenshot queueing
+ * - Real-time synchronization pipeline to Express backend API (events & screenshots)
+ * - Visual context capture scheduler (30s throttled captures)
  *
  * IMPORTANT (from AGENT.md):
  * - Service workers are ephemeral — never store state in global variables
@@ -17,6 +17,7 @@
 import type {
   ExtensionMessage,
   StatusResponse,
+  GetLatestScreenshotResponse,
   SyncResponse,
   SetBackendUrlResponse,
   ClearEventsResponse,
@@ -37,11 +38,24 @@ import {
 } from '../storage/event-logger.js';
 
 import {
+  queueScreenshot,
+  getQueuedScreenshots,
+  removeScreenshots,
+  getLatestQueuedScreenshot,
+  clearScreenshots,
+} from '../storage/screenshot-logger.js';
+
+import {
   getBackendUrl,
   setBackendUrl,
   sendBatchEvents,
+  sendScreenshot,
   checkServerHealth,
 } from '../network/client.js';
+
+import { captureVisibleTab } from '../visual/capture.js';
+import { startScheduler } from '../visual/scheduler.js';
+import type { CreateScreenshotRequest } from '@visual-ai/shared-types';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -50,6 +64,8 @@ const SYNC_STATE_KEY = 'vai_sync_state';
 interface SyncState {
   connectionStatus: ConnectionStatus;
   lastSyncTime: string | null;
+  lastCaptureTime: string | null;
+  totalScreenshotsCaptured: number;
   retryAttempt: number;
 }
 
@@ -63,6 +79,8 @@ async function getSyncState(): Promise<SyncState> {
   return {
     connectionStatus: 'offline',
     lastSyncTime: null,
+    lastCaptureTime: null,
+    totalScreenshotsCaptured: 0,
     retryAttempt: 0,
   };
 }
@@ -97,7 +115,6 @@ async function ensureSession(): Promise<string> {
     startedAt: now,
   });
 
-  // Log SESSION_STARTED event
   const event = createEvent({
     sessionId,
     url: '',
@@ -112,12 +129,38 @@ async function ensureSession(): Promise<string> {
   return sessionId;
 }
 
+// ─── Visual Context Capture & Queue ─────────────────────────────────────────
+
+async function handleScreenshotCapture(screenshot: CreateScreenshotRequest): Promise<void> {
+  await queueScreenshot(screenshot);
+
+  const state = await getSyncState();
+  await setSyncState({
+    lastCaptureTime: screenshot.capturedAt,
+    totalScreenshotsCaptured: state.totalScreenshotsCaptured + 1,
+  });
+
+  // Trigger background flush for screenshots
+  flushQueue().catch((err) => console.debug('[Visual AI] Screenshot sync flush error:', err));
+}
+
+async function triggerVisualCapture(sessionId: string, force: boolean = false): Promise<void> {
+  try {
+    const screenshot = await captureVisibleTab(sessionId, undefined, force);
+    if (screenshot) {
+      await handleScreenshotCapture(screenshot);
+    }
+  } catch (error) {
+    console.debug('[Visual AI] Visual capture error:', error);
+  }
+}
+
 // ─── Synchronization Pipeline ────────────────────────────────────────────────
 
 let isSyncInProgress = false;
 
 /**
- * Flush local offline event queue to backend API.
+ * Flush local offline event queue and screenshot queue to backend API.
  */
 async function flushQueue(): Promise<{ success: boolean; syncedCount: number; error?: string }> {
   if (isSyncInProgress) {
@@ -128,44 +171,54 @@ async function flushQueue(): Promise<{ success: boolean; syncedCount: number; er
   await setSyncState({ connectionStatus: 'syncing' });
 
   try {
-    const queue = await getStoredEvents();
-    if (queue.length === 0) {
-      await setSyncState({ connectionStatus: 'connected', retryAttempt: 0 });
-      isSyncInProgress = false;
-      return { success: true, syncedCount: 0 };
-    }
-
     const backendUrl = await getBackendUrl();
-    const result = await sendBatchEvents(queue, backendUrl);
+    const eventQueue = await getStoredEvents();
+    let totalSynced = 0;
 
-    if (result.success) {
-      // Remove synced events from local queue
-      await removeEvents(queue);
-      const now = new Date().toISOString();
-
-      await setSyncState({
-        connectionStatus: 'connected',
-        lastSyncTime: now,
-        retryAttempt: 0,
-      });
-
-      console.log(`[Visual AI] Sync successful: ${queue.length} events uploaded to ${backendUrl}`);
-      isSyncInProgress = false;
-      return { success: true, syncedCount: queue.length };
-    } else {
-      // Upload failed — handle exponential backoff retry
-      const currentState = await getSyncState();
-      const nextAttempt = currentState.retryAttempt + 1;
-      await setSyncState({
-        connectionStatus: 'offline',
-        retryAttempt: nextAttempt,
-      });
-
-      scheduleRetry(nextAttempt);
-      console.warn(`[Visual AI] Sync failed: ${result.error}. Scheduled retry attempt #${nextAttempt}`);
-      isSyncInProgress = false;
-      return { success: false, syncedCount: 0, error: result.error };
+    // 1. Sync Activity Events
+    if (eventQueue.length > 0) {
+      const eventResult = await sendBatchEvents(eventQueue, backendUrl);
+      if (eventResult.success) {
+        await removeEvents(eventQueue);
+        totalSynced += eventQueue.length;
+      } else {
+        const currentState = await getSyncState();
+        const nextAttempt = currentState.retryAttempt + 1;
+        await setSyncState({
+          connectionStatus: 'offline',
+          retryAttempt: nextAttempt,
+        });
+        scheduleRetry(nextAttempt);
+        isSyncInProgress = false;
+        return { success: false, syncedCount: 0, error: eventResult.error };
+      }
     }
+
+    // 2. Sync Screenshots
+    const screenshotQueue = await getQueuedScreenshots();
+    if (screenshotQueue.length > 0) {
+      const syncedScreenshotIds: string[] = [];
+      for (const scr of screenshotQueue) {
+        const scrResult = await sendScreenshot(scr, backendUrl);
+        if (scrResult.success) {
+          syncedScreenshotIds.push(scr.screenshotId);
+        }
+      }
+      if (syncedScreenshotIds.length > 0) {
+        await removeScreenshots(syncedScreenshotIds);
+      }
+    }
+
+    const now = new Date().toISOString();
+    await setSyncState({
+      connectionStatus: 'connected',
+      lastSyncTime: now,
+      retryAttempt: 0,
+    });
+
+    isSyncInProgress = false;
+    return { success: true, syncedCount: totalSynced };
+
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown sync error';
     await setSyncState({ connectionStatus: 'error' });
@@ -174,26 +227,18 @@ async function flushQueue(): Promise<{ success: boolean; syncedCount: number; er
   }
 }
 
-/**
- * Schedule exponential backoff retry for failed queue flushes.
- * Delays: 2s, 4s, 8s, 16s, 32s, max 60s.
- */
 function scheduleRetry(attempt: number): void {
   const delayMs = Math.min(Math.pow(2, attempt) * 1000, 60000);
   setTimeout(() => {
     (async () => {
-      console.log(`[Visual AI] Retrying queue sync (attempt #${attempt})...`);
+      console.log(`[Visual AI] Retrying sync (attempt #${attempt})...`);
       await flushQueue();
     })();
   }, delayMs);
 }
 
-/**
- * Queue an event locally and initiate background sync.
- */
 async function queueAndSync(event: StoredEvent): Promise<void> {
   await appendEvent(event);
-  // Trigger background flush asynchronously without blocking caller
   flushQueue().catch((err) => console.debug('[Visual AI] Background flush error:', err));
 }
 
@@ -212,6 +257,7 @@ async function isDuplicatePageLoad(url: string): Promise<boolean> {
 
 type MessageResponse =
   | StatusResponse
+  | GetLatestScreenshotResponse
   | SyncResponse
   | SetBackendUrlResponse
   | ClearEventsResponse
@@ -241,6 +287,9 @@ chrome.runtime.onMessage.addListener(
                 metadata: {},
               });
               await queueAndSync(event);
+
+              // Trigger visual capture on navigation
+              await triggerVisualCapture(sessionId, true);
               console.log(`[Visual AI] PAGE_LOADED | ${message.data.url}`);
             }
             sendResponse({ received: true });
@@ -304,8 +353,8 @@ chrome.runtime.onMessage.addListener(
             const syncState = await getSyncState();
             const backendUrl = await getBackendUrl();
             const sessionData = await chrome.storage.session.get(['isActive']);
+            const latestScreenshot = await getLatestQueuedScreenshot();
 
-            // Quick health check to update connectionStatus accurately
             const isHealthy = await checkServerHealth(backendUrl);
             const currentStatus: ConnectionStatus = isHealthy ? 'connected' : 'offline';
 
@@ -318,8 +367,20 @@ chrome.runtime.onMessage.addListener(
               queuedCount: count,
               lastSyncTime: syncState.lastSyncTime,
               backendUrl,
+              screenshotCount: syncState.totalScreenshotsCaptured,
+              lastCaptureTime: syncState.lastCaptureTime,
+              latestScreenshotDataUrl: latestScreenshot?.dataUrl || null,
             };
             sendResponse(response);
+            break;
+          }
+
+          case 'GET_LATEST_SCREENSHOT': {
+            const latest = await getLatestQueuedScreenshot();
+            sendResponse({
+              success: latest !== null,
+              screenshot: latest,
+            });
             break;
           }
 
@@ -335,7 +396,6 @@ chrome.runtime.onMessage.addListener(
 
           case 'SET_BACKEND_URL': {
             const newUrl = await setBackendUrl(message.url);
-            // Immediately test connection and attempt flush
             await flushQueue();
             sendResponse({ success: true, url: newUrl });
             break;
@@ -343,7 +403,8 @@ chrome.runtime.onMessage.addListener(
 
           case 'CLEAR_EVENTS': {
             await clearEvents();
-            console.log('[Visual AI] Offline queue cleared');
+            await clearScreenshots();
+            console.log('[Visual AI] Queues cleared');
             sendResponse({ success: true });
             break;
           }
@@ -365,7 +426,6 @@ chrome.runtime.onMessage.addListener(
       }
     })();
 
-    // Return true to indicate async response
     return true;
   }
 );
@@ -389,6 +449,9 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
         },
       });
       await queueAndSync(event);
+
+      // Capture screenshot on tab activation
+      await triggerVisualCapture(sessionId, true);
       console.log(`[Visual AI] TAB_ACTIVATED | ${tab.url}`);
     }
   } catch (error) {
@@ -413,13 +476,20 @@ chrome.tabs.onUpdated.addListener(async (_tabId, changeInfo, tab) => {
       },
     });
     await queueAndSync(event);
+
+    // Capture screenshot on URL change
+    await triggerVisualCapture(sessionId, true);
     console.log(`[Visual AI] TAB_UPDATED | ${tab.url}`);
   } catch (error) {
     console.error('[Visual AI] Error on tab update:', error);
   }
 });
 
-// ─── Lifecycle & Network Reconnection Listener ───────────────────────────────
+// ─── Start Periodic Visual Capture Scheduler ──────────────────────────────────
+
+startScheduler(ensureSession, handleScreenshotCapture);
+
+// ─── Lifecycle Startup ────────────────────────────────────────────────────────
 
 chrome.runtime.onInstalled.addListener(async () => {
   const sessionId = await ensureSession();
@@ -427,7 +497,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   await flushQueue();
 });
 
-// Initial flush on service worker startup
 (async () => {
   await ensureSession();
   await flushQueue();

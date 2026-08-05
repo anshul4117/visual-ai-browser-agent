@@ -1,8 +1,8 @@
-import type { ActivityEvent } from '@visual-ai/shared-types';
+import type { ActivityEvent, CreateScreenshotRequest } from '@visual-ai/shared-types';
 
 export const DEFAULT_BACKEND_URL = 'http://localhost:3000';
 const BACKEND_URL_KEY = 'vai_backend_url';
-const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_TIMEOUT_MS = 10000;
 
 /**
  * Retrieve configured backend URL from chrome.storage.sync.
@@ -125,6 +125,42 @@ export async function sendBatchEvents(
     if (response.status === 201 || response.status === 200) {
       const resData = await response.json().catch(() => ({ count: events.length }));
       return { success: true, count: resData.count || events.length };
+    }
+
+    const errData = await response.json().catch(() => ({ error: 'HTTP error' }));
+    return { success: false, error: errData.error || `Server responded with ${response.status}` };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Network error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Transmit a Screenshot payload to POST /api/screenshots.
+ */
+export async function sendScreenshot(
+  payload: CreateScreenshotRequest,
+  backendUrl?: string
+): Promise<{ success: boolean; filePath?: string; error?: string }> {
+  try {
+    const baseUrl = backendUrl || (await getBackendUrl());
+    const endpoint = `${baseUrl}/api/screenshots`;
+
+    const response = await fetchWithTimeout(
+      endpoint,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      },
+      15000 // 15s timeout for screenshot payload
+    );
+
+    if (response.status === 201 || response.status === 200) {
+      const resData = await response.json().catch(() => ({}));
+      return { success: true, filePath: resData.filePath };
     }
 
     const errData = await response.json().catch(() => ({ error: 'HTTP error' }));
