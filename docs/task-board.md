@@ -25,16 +25,19 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Session management (chrome.storage.session)
 - [x] Extension loads in Chrome
 
-## Phase 2 — Activity Tracking
+## Phase 2 — Activity Tracking ✅
 
-- [ ] URL change detection
-- [ ] Tab switch detection
-- [ ] Page load detection
-- [ ] Click event tracking
-- [ ] Scroll event tracking
-- [ ] Form interaction tracking
-- [ ] Time on page tracking
-- [ ] Events structured per `shared-types`
+- [x] URL change detection (`chrome.tabs.onUpdated`)
+- [x] Tab switch detection (`chrome.tabs.onActivated`)
+- [x] Page load detection (`PAGE_LOADED`)
+- [x] Click event tracking (content script)
+- [x] Scroll event tracking (throttled)
+- [x] Visibility change tracking (`visibilitychange`)
+- [x] Session lifecycle events (`SESSION_STARTED`)
+- [x] Reusable event logger module (`chrome.storage.local`)
+- [x] Popup event statistics & last event display
+- [x] Popup JSON export & event clearing
+- [x] Events structured per `shared-types` and `docs/database.md`
 
 ## Phase 3 — Backend API
 

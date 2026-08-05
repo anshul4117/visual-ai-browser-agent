@@ -15,10 +15,13 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Extension build system (esbuild) | ✅ Complete | 1 |
 | Manifest V3 | ✅ Complete | 1 |
 | Background service worker | ✅ Complete | 1 |
-| Content script (PAGE_LOADED) | ✅ Complete | 1 |
-| Popup UI (status display) | ✅ Complete | 1 |
-| Messaging layer (typed) | ✅ Complete | 1 |
-| Activity tracking | 🔲 Not started | 2 |
+| Content script scaffold | ✅ Complete | 1 |
+| Popup UI | ✅ Complete | 1 |
+| Messaging layer | ✅ Complete | 1 |
+| Event logger module (chrome.storage.local) | ✅ Complete | 2 |
+| Tab activation & update tracking | ✅ Complete | 2 |
+| Content script DOM tracking (click/scroll/visibility) | ✅ Complete | 2 |
+| Event export & clear features in Popup | ✅ Complete | 2 |
 | Backend API | 🔲 Not started | 3 |
 | MongoDB integration | 🔲 Not started | 4 |
 | Visual context | 🔲 Not started | 5 |
@@ -28,38 +31,28 @@ Persistent context for the AI coding agent. Updated after each phase.
 
 ## Pending Tasks
 
-Next phase: **Phase 2 — Browser Activity Tracking**
+Next phase: **Phase 3 — Backend API**
 
-- Add URL change detection via `chrome.tabs.onUpdated`
-- Add tab switch detection via `chrome.tabs.onActivated`
-- Add page load detection via `chrome.webNavigation.onCompleted`
-- Add click event tracking in content script
-- Add scroll event tracking in content script
-- Add form interaction tracking in content script
-- Add time on page tracking
-- Structure all events per `@visual-ai/shared-types`
+- Express.js server setup in `apps/server`
+- `POST /api/events` endpoint for receiving events
+- `GET /api/events` endpoint for querying events
+- `GET /api/health` health check endpoint
+- Request validation and middleware setup
 
 ## File Ownership
 
 | Directory | Owner | Purpose |
 |-----------|-------|---------|
-| `apps/extension/src/background/` | Extension | Service worker, event handling |
-| `apps/extension/src/content/` | Extension | DOM event capture |
-| `apps/extension/src/messaging/` | Extension | Typed message protocol |
-| `apps/extension/src/popup/` | Extension | UI controls |
+| `apps/extension/src/background/` | Extension | Service worker, event handling, tab listeners |
+| `apps/extension/src/content/` | Extension | DOM event capture (click, scroll, visibility) |
+| `apps/extension/src/messaging/` | Extension | Typed message protocol & StoredEvent model |
+| `apps/extension/src/storage/` | Extension | Persistent event logger (`event-logger.ts`) |
+| `apps/extension/src/popup/` | Extension | UI controls, statistics, export & clear |
 | `apps/extension/scripts/` | Extension | Build tooling |
 | `apps/server/` | Backend | Express.js API |
 | `packages/shared-types/` | Shared | TypeScript interfaces |
 | `packages/shared-utils/` | Shared | Utility functions |
 | `docs/` | All | Documentation |
-
-## API Contracts
-
-Defined in: [docs/api-spec.md](api-spec.md)
-
-- `POST /api/events` — Extension → Server
-- `GET /api/events` — Dashboard → Server
-- `GET /api/health` — Monitoring → Server
 
 ## Internal Messaging Contracts
 
@@ -68,7 +61,12 @@ Defined in: `apps/extension/src/messaging/types.ts`
 | Message | Direction | Data |
 |---------|-----------|------|
 | `PAGE_LOADED` | Content → Background | `{ url, title, timestamp }` |
+| `CLICK` | Content → Background | `{ url, title, timestamp, selector, tagName, innerText }` |
+| `SCROLL` | Content → Background | `{ url, title, timestamp, scrollPercentage }` |
+| `VISIBILITY_CHANGED` | Content → Background | `{ url, title, timestamp, visibilityState }` |
 | `GET_STATUS` | Popup → Background | (none) |
+| `CLEAR_EVENTS` | Popup → Background | (none) |
+| `EXPORT_EVENTS` | Popup → Background | (none) |
 
 ## Database Contracts
 
@@ -91,8 +89,9 @@ Defined in: [docs/database.md](database.md)
 2. AI processing reads from the events collection, does not modify the core event pipeline
 3. User consent is obtained through Chrome extension permission prompts
 4. No user authentication in MVP — optional `userId` field for future use
-5. esbuild chosen as bundler for simplicity and speed (no Webpack/Vite complexity)
-6. IIFE format used for all extension scripts (content scripts and service workers cannot use ESM imports)
+5. esbuild chosen as bundler for simplicity and speed
+6. IIFE format used for all extension scripts
+7. Local timeline stored in `chrome.storage.local` under key `vai_events`, capped at 10,000 events
 
 ## Known Limitations
 
