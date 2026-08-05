@@ -17,18 +17,20 @@ The system follows a three-tier architecture:
 │  ┌─────────────────┐     ┌──────────────────────────────┐ │
 │  │  Content Script  │────▶│  Background Service Worker   │ │
 │  │                  │     │                              │ │
-│  │  • Click events  │     │  • Event aggregation         │ │
+│  │  • PAGE_LOADED   │     │  • Message handler           │ │
+│  │  (Phase 2:)      │     │  • Session management        │ │
+│  │  • Click events  │     │  • Event logging             │ │
 │  │  • Scroll events │     │  • Tab/URL change detection  │ │
-│  │  • Form events   │     │  • Session management        │ │
-│  │  • DOM snapshots │     │  • API communication         │ │
-│  │                  │     │  • Offline buffering          │ │
+│  │  • Form events   │     │  • API communication         │ │
+│  │  • DOM snapshots │     │  • Offline buffering         │ │
 │  └─────────────────┘     │  • Screenshot capture         │ │
 │                           └──────────────┬───────────────┘ │
 │  ┌─────────────────┐                     │                 │
-│  │  Popup UI       │                     │                 │
-│  │  • Toggle       │                     │                 │
-│  │  • Status       │                     │                 │
-│  │  • Settings     │                     │                 │
+│  │  Popup UI       │─── GET_STATUS ─────▶│                 │
+│  │  • Status badge │                     │                 │
+│  │  • Session ID   │                     │                 │
+│  │  • Event count  │                     │                 │
+│  │  • Current URL  │                     │                 │
 │  └─────────────────┘                     │                 │
 └──────────────────────────────────────────┼─────────────────┘
                                            │
@@ -37,28 +39,87 @@ The system follows a three-tier architecture:
                                            ▼
 ```
 
+### Extension File Structure
+
+```
+apps/extension/
+├── scripts/
+│   └── build.ts              # esbuild build script
+├── src/
+│   ├── background/
+│   │   └── index.ts          # Service worker — message handling, session mgmt
+│   ├── content/
+│   │   └── index.ts          # Content script — PAGE_LOADED event
+│   ├── messaging/
+│   │   └── types.ts          # Typed message protocol (extensible)
+│   ├── popup/
+│   │   ├── popup.html        # Popup UI (no inline scripts)
+│   │   ├── popup.css         # Dark theme styles
+│   │   └── popup.ts          # Popup logic — status display
+│   └── manifest.json         # Manifest V3 config
+├── dist/                     # Build output (load as unpacked extension)
+├── package.json
+└── tsconfig.json
+```
+
+### Build System
+
+- **Bundler:** esbuild (fast, zero-config)
+- **Output format:** IIFE (required for content scripts and service workers)
+- **Static files:** manifest.json, popup.html, popup.css copied to dist/
+- **Source maps:** Enabled for development debugging
+
+### Messaging Protocol
+
+All communication between extension components uses `chrome.runtime.sendMessage` with a typed protocol:
+
+| Message | Direction | Purpose |
+|---------|-----------|---------|
+| `PAGE_LOADED` | Content → Background | Notify page finished loading |
+| `GET_STATUS` | Popup → Background | Request current status |
+
+Future Phase 2 messages will follow the same `{ type, data }` pattern.
+
+### Session Management
+
+- Session IDs are generated as `vai_<timestamp36>_<random>`
+- Stored in `chrome.storage.session` (survives SW restart, cleared on browser close)
+- Session state includes: `sessionId`, `eventCount`, `isActive`, `startedAt`
+- No global variables — all state in `chrome.storage` (per AGENT.md rules)
+
 ### Content Script
 
-- Injected into all pages (`<all_urls>`)
-- Captures DOM-level events: clicks, scrolls, form interactions
-- Sends events to the background service worker via `chrome.runtime.sendMessage`
+- Injected into all pages (`<all_urls>`) at `document_idle`
+- Captures `window.location.href` and `document.title`
+- Sends `PAGE_LOADED` message to background service worker
+- Gracefully handles extension context invalidation
 - Must not block the main thread — batches DOM reads with `requestAnimationFrame`
 
 ### Background Service Worker
 
-- Listens to Chrome APIs: `chrome.tabs.onUpdated`, `chrome.tabs.onActivated`, `chrome.webNavigation`
-- Receives events from content scripts
+- Listens to Chrome APIs: `chrome.tabs.onUpdated`, `chrome.tabs.onActivated`, `chrome.webNavigation` (Phase 2)
+- Receives messages from content scripts and popup
 - Manages session lifecycle (create, extend, close)
-- Batches events and sends to backend API
-- Buffers events offline using `chrome.storage.local`
-- No global state — all state in `chrome.storage`
+- Batches events and sends to backend API (Phase 3)
+- Buffers events offline using `chrome.storage.local` (Phase 8)
+- Uses `return true` in `onMessage` for async responses
 
 ### Popup UI
 
-- Simple control panel for the extension
-- Toggle tracking on/off
-- Display current session status
-- Show event count
+- Displays: status badge, session ID, event count, current tab URL
+- Dark theme with purple accent (#7c5cff)
+- No inline scripts or event handlers
+- Reads `tab.url` via `chrome.tabs.query` (requires `tabs` permission)
+
+### Permissions
+
+| Permission | Purpose | Used By |
+|------------|---------|---------|
+| `tabs` | Access `tab.url` and `tab.title` | Background, Popup |
+| `activeTab` | Temporary access to active tab on user gesture | Background |
+| `scripting` | Execute scripts in tabs | Background (Phase 2) |
+| `storage` | Persist session state | Background |
+| `<all_urls>` (host) | Content script injection on all pages | Content Script |
 
 ## Backend Architecture
 
@@ -116,23 +177,26 @@ See [Database Schema](database.md) for collection definitions.
 ## Event Flow
 
 ```
-User Action
+User Action (page load)
     │
     ▼
-Content Script (DOM event listener)
+Content Script (document_idle)
     │
-    │ chrome.runtime.sendMessage({ type, data })
+    │ chrome.runtime.sendMessage({ type: 'PAGE_LOADED', data })
     ▼
 Background Service Worker
     │
-    │ Aggregate + batch
-    │ Buffer if offline
+    │ Log event, increment counter
+    │ Store session in chrome.storage.session
+    │
+    │ (Phase 3: Aggregate + batch)
+    │ (Phase 8: Buffer if offline)
     ▼
-POST /api/events
+POST /api/events (Phase 3)
     │
     │ Validate + transform
     ▼
-MongoDB (events collection)
+MongoDB (events collection) (Phase 4)
 ```
 
 ## AI Pipeline (Future — Phase 6)

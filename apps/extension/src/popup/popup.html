@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visual AI Browser Agent</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1 class="popup-title">Visual AI</h1>
+      <span class="popup-subtitle">Browser Agent</span>
+    </header>
+
+    <div class="status-section">
+      <div class="status-row">
+        <span class="status-label">Status</span>
+        <span id="status-indicator" class="status-badge status-active">Active</span>
+      </div>
+    </div>
+
+    <div class="info-section">
+      <div class="info-row">
+        <span class="info-label">Session</span>
+        <span id="session-id" class="info-value mono">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Events</span>
+        <span id="event-count" class="info-value">0</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Current Tab</span>
+        <span id="current-url" class="info-value url-text" title="">—</span>
+      </div>
+    </div>
+
+    <footer class="popup-footer">
+      <span class="footer-text">v1.0.0</span>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

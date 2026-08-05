@@ -2,7 +2,7 @@
 
 Master checklist for the Visual AI Browser Agent project.
 
-## Phase 0 — Project Setup
+## Phase 0 — Project Setup ✅
 
 - [x] Repository initialization
 - [x] Monorepo structure (npm workspaces)
@@ -14,14 +14,16 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Shared types package
 - [x] Shared utils package
 
-## Phase 1 — Extension Foundation
+## Phase 1 — Extension Foundation ✅
 
-- [ ] Manifest V3 (`manifest.json`)
-- [ ] Background service worker
-- [ ] Content script scaffold
-- [ ] Extension popup HTML/CSS/JS
-- [ ] Build system configuration
-- [ ] Extension loads in Chrome
+- [x] Manifest V3 (`manifest.json`)
+- [x] Background service worker
+- [x] Content script scaffold (PAGE_LOADED)
+- [x] Extension popup HTML/CSS/JS
+- [x] Build system configuration (esbuild)
+- [x] Messaging layer (typed protocol)
+- [x] Session management (chrome.storage.session)
+- [x] Extension loads in Chrome
 
 ## Phase 2 — Activity Tracking
 
