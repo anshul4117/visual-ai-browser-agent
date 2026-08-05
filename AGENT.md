@@ -16,7 +16,7 @@ Original assignment:
 
 ## Current Phase
 
-Phase 2 — Browser Activity Tracking (Complete)
+Phase 3 — Backend API (Complete)
 
 ## Architecture Constraints
 

@@ -6,7 +6,7 @@ The system follows a three-tier architecture:
 
 1. **Chrome Extension** — Captures browser events and visual context
 2. **Backend API** — Receives, validates, and routes events
-3. **Database** — Persists events and sessions
+3. **Database** — Persists events and sessions (Phase 4)
 
 ## Extension Architecture
 
@@ -33,7 +33,7 @@ The system follows a three-tier architecture:
 │  └─────────────────┘                     │                 │
 └──────────────────────────────────────────┼─────────────────┘
                                            │
-                                    HTTP REST API (Phase 3)
+                                    HTTP REST API
                                            │
                                            ▼
 ```
@@ -63,101 +63,61 @@ apps/extension/
 └── tsconfig.json
 ```
 
-### Build System
-
-- **Bundler:** esbuild (fast, zero-config)
-- **Output format:** IIFE (required for content scripts and service workers)
-- **Static files:** manifest.json, popup.html, popup.css copied to dist/
-- **Source maps:** Enabled for development debugging
-
-### Messaging Protocol
-
-All communication between extension components uses `chrome.runtime.sendMessage` with a typed protocol:
-
-| Message | Direction | Purpose |
-|---------|-----------|---------|
-| `PAGE_LOADED` | Content → Background | Notify page finished loading |
-| `CLICK` | Content → Background | Notify user clicked an element (selector, tag, text) |
-| `SCROLL` | Content → Background | Notify user scrolled page (throttled depth percentage) |
-| `VISIBILITY_CHANGED` | Content → Background | Notify tab visibility state changed |
-| `GET_STATUS` | Popup → Background | Request current extension status & stats |
-| `CLEAR_EVENTS` | Popup → Background | Clear all stored events from local storage |
-| `EXPORT_EVENTS` | Popup → Background | Retrieve all stored events for JSON export |
-
-### Event Storage & Logging Layer
-
-- Event logger encapsulated in `apps/extension/src/storage/event-logger.ts`
-- Events persisted in `chrome.storage.local` under key `vai_events`
-- Maintains an append-only timeline with auto-capping at 10,000 events
-- All events conform to the standard `StoredEvent` model
-
-### Session Management
-
-- Session IDs are generated as `vai_<timestamp36>_<random>`
-- Stored in `chrome.storage.session` (survives SW restart, cleared on browser close)
-- Session state includes: `sessionId`, `lastEventCount`, `lastEventType`, `isActive`, `startedAt`
-- Emits a `session_started` event into the timeline upon initial creation
-
-### Content Script
-
-- Injected into all pages (`<all_urls>`) at `document_idle`
-- Uses passive event listeners for `click` and `scroll`
-- Throttles scroll logging (max once per 2s, minimum 5% change threshold)
-- Prevents duplicate `PAGE_LOADED` messages within the same script context
-
-### Background Service Worker
-
-- Listens to Chrome APIs: `chrome.tabs.onActivated` (tab switch), `chrome.tabs.onUpdated` (URL/title changes)
-- Logs corresponding `tab_switch` and `url_change` events
-- Filters out non-HTTP(S) scheme URLs (e.g. `chrome://`)
-- Handles message dispatch and local event timeline persistence
-
-### Popup UI
-
-- Displays: status badge, session ID, event count, last recorded event type, current tab URL
-- Features: "Export JSON" button (downloads JSON timeline) and "Clear Events" button
-- Dark theme styling with responsive layout
-- Reads `tab.url` via `chrome.tabs.query` (requires `tabs` permission)
-
-### Permissions
-
-| Permission | Purpose | Used By |
-|------------|---------|---------|
-| `tabs` | Access `tab.url` and `tab.title` | Background, Popup |
-| `activeTab` | Temporary access to active tab on user gesture | Background |
-| `scripting` | Execute scripts in tabs | Background |
-| `storage` | Persist session state and local event log | Background, Storage |
-| `<all_urls>` (host) | Content script injection on all pages | Content Script |
-
-## Backend Architecture (Phase 3)
+## Backend Architecture
 
 ```
-┌──────────────────────────────────────────────┐
-│                Express.js Server             │
-│                                              │
-│  ┌────────────┐  ┌────────────────────────┐ │
-│  │  Routes     │  │  Controllers           │ │
-│  │             │  │                        │ │
-│  │  POST /api/ │──▶│  • validateEvent()    │ │
-│  │    events   │  │  • createEvent()       │ │
-│  │             │  │  • getEvents()         │ │
-│  │  GET /api/  │──▶│  • healthCheck()      │ │
-│  │    events   │  │                        │ │
-│  │             │  └────────────┬───────────┘ │
-│  │  GET /api/  │               │             │
-│  │    health   │               ▼             │
-│  └────────────┘  ┌────────────────────────┐ │
-│                  │  Mongoose Models        │ │
-│                  │  • Event               │ │
-│                  │  • Session             │ │
-│                  └────────────┬───────────┘ │
-└───────────────────────────────┼──────────────┘
-                                │
-                                ▼
-                    ┌──────────────────────┐
-                    │       MongoDB        │
-                    └──────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Express.js Server API                           │
+│                                                                        │
+│  ┌─────────────────┐    ┌────────────────────┐    ┌─────────────────┐  │
+│  │  Middleware     │───▶│  Routes            │───▶│  Controllers    │  │
+│  │  • CORS         │    │  • /api/health     │    │  • Health       │  │
+│  │  • JSON Body    │    │  • /api/events     │    │  • Events       │  │
+│  │  • Logger       │    │  • /api/events/    │    └────────┬────────┘  │
+│  │  • Validator    │    │    batch           │             │           │
+│  │  • Error        │    │  • /api/events/    │             ▼           │
+│  └─────────────────┘    │    :sessionId      │    ┌─────────────────┐  │
+│                         └────────────────────┘    │  Services       │  │
+│                                                   │  • EventStore   │  │
+│                                                   │    (In-Memory   │  │
+│                                                   │     Timeline &  │  │
+│                                                   │     Indexing)   │  │
+│                                                   └─────────────────┘  │
+└────────────────────────────────────────────────────────────────────────┘
 ```
+
+### Server File Structure
+
+```
+apps/server/
+├── Dockerfile                # Multi-stage Docker build
+├── package.json
+├── tsconfig.json
+└── src/
+    ├── index.ts              # Entry point — loads env & starts HTTP server
+    ├── app.ts                # Express app configuration & middleware pipeline
+    ├── routes/
+    │   ├── health.routes.ts  # /api/health route
+    │   └── events.routes.ts  # /api/events & /api/events/batch routes
+    ├── controllers/
+    │   ├── health.controller.ts # Health check logic
+    │   └── events.controller.ts # Single/batch event ingestion & query controllers
+    ├── services/
+    │   └── event-store.service.ts # In-memory append-only event store & indexer
+    ├── middleware/
+    │   ├── logger.middleware.ts   # Request logger (method, path, status, duration)
+    │   ├── error.middleware.ts    # Global error handler & 404 handler
+    │   └── validate.middleware.ts # Request body validation for single & batch events
+    └── types/
+        └── index.ts          # Query parameters & pagination types
+```
+
+### Route → Middleware → Controller → Service Pattern
+
+- **Routes**: Map HTTP methods and paths to middlewares and controllers.
+- **Middleware**: Validates incoming payloads, logs HTTP requests, and handles errors.
+- **Controllers**: Handle request/response mapping and call domain services.
+- **Services**: `EventStoreService` encapsulates in-memory storage, session indexing, query filtering, and pagination.
 
 ## Database Architecture (Phase 4)
 
@@ -175,7 +135,15 @@ Content Script / Background Tab Listeners
     ▼
 Background Service Worker
     │
-    │ Process event & append to timeline
+    │ Log event locally (chrome.storage.local)
+    │ (Phase 3 Backend Integration / Phase 8 Buffer)
     ▼
-chrome.storage.local (vai_events)
+POST /api/events  OR  POST /api/events/batch
+    │
+    ▼
+Express API (apps/server)
+    │
+    │ Validate payload & append to EventStoreService
+    ▼
+In-Memory Store (Phase 3) ──▶ MongoDB (Phase 4)
 ```

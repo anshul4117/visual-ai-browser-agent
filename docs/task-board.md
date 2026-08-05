@@ -39,15 +39,18 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Popup JSON export & event clearing
 - [x] Events structured per `shared-types` and `docs/database.md`
 
-## Phase 3 — Backend API
+## Phase 3 — Backend API ✅
 
-- [ ] Express.js server setup
-- [ ] `POST /api/events` endpoint
-- [ ] `GET /api/events` endpoint
-- [ ] `GET /api/health` endpoint
-- [ ] Request validation
-- [ ] Error handling middleware
-- [ ] CORS configuration
+- [x] Express.js server setup in `apps/server`
+- [x] `POST /api/events` single event endpoint
+- [x] `POST /api/events/batch` batch events endpoint
+- [x] `GET /api/events` query endpoint (filtering & pagination)
+- [x] `GET /api/events/:sessionId` endpoint
+- [x] `GET /api/health` health check endpoint
+- [x] Request payload validation & error middleware
+- [x] Request logging middleware
+- [x] CORS configuration
+- [x] Server Dockerfile & docker-compose service configuration
 
 ## Phase 4 — Database
 
