@@ -6,7 +6,7 @@ The system follows a three-tier architecture:
 
 1. **Chrome Extension** — Captures browser events and visual context
 2. **Backend API** — Receives, validates, and routes events
-3. **Database** — Persists events and sessions (Phase 4)
+3. **Database** — Persists events and sessions in MongoDB
 
 ## Extension Architecture
 
@@ -21,7 +21,7 @@ The system follows a three-tier architecture:
 │  │  • CLICK         │     │  • Event Logger (storage)    │ │
 │  │  • SCROLL        │     │  • Session management        │ │
 │  │  • VISIBILITY    │     │  • Tab switch / update events│ │
-│  └─────────────────┘     │  • API communication (Ph 3)  │ │
+│  └─────────────────┘     │  • API communication         │ │
 │                           └──────────────┬───────────────┘ │
 │  ┌─────────────────┐                     │                 │
 │  │  Popup UI       │─── GET_STATUS ─────▶│                 │
@@ -79,11 +79,22 @@ apps/extension/
 │  └─────────────────┘    │    :sessionId      │    ┌─────────────────┐  │
 │                         └────────────────────┘    │  Services       │  │
 │                                                   │  • EventStore   │  │
-│                                                   │    (In-Memory   │  │
-│                                                   │     Timeline &  │  │
-│                                                   │     Indexing)   │  │
-│                                                   └─────────────────┘  │
-└────────────────────────────────────────────────────────────────────────┘
+│                                                   │    Interface    │  │
+│                                                   └────────┬────────┘  │
+└────────────────────────────────────────────────────────────┼───────────┘
+                                                             │
+                                     ┌───────────────────────┴───────────────────────┐
+                                     ▼                                               ▼
+                         ┌──────────────────────┐                        ┌──────────────────────┐
+                         │  MongoEventStore     │                        │  InMemoryEventStore  │
+                         │  (Mongoose Models)   │                        │  (Fallback Storage)  │
+                         └──────────┬───────────┘                        └──────────────────────┘
+                                    │
+                                    ▼
+                         ┌──────────────────────┐
+                         │  MongoDB 7 Container │
+                         │  (events & sessions) │
+                         └──────────────────────┘
 ```
 
 ### Server File Structure
@@ -94,8 +105,13 @@ apps/server/
 ├── package.json
 ├── tsconfig.json
 └── src/
-    ├── index.ts              # Entry point — loads env & starts HTTP server
+    ├── index.ts              # Entry point — connects DB, loads env & starts HTTP server
     ├── app.ts                # Express app configuration & middleware pipeline
+    ├── database/
+    │   └── connection.ts     # Mongoose connection manager & event listeners
+    ├── models/
+    │   ├── event.model.ts    # Mongoose schema & model for Events
+    │   └── session.model.ts  # Mongoose schema & model for Sessions
     ├── routes/
     │   ├── health.routes.ts  # /api/health route
     │   └── events.routes.ts  # /api/events & /api/events/batch routes
@@ -103,7 +119,10 @@ apps/server/
     │   ├── health.controller.ts # Health check logic
     │   └── events.controller.ts # Single/batch event ingestion & query controllers
     ├── services/
-    │   └── event-store.service.ts # In-memory append-only event store & indexer
+    │   ├── event-store.interface.ts # Storage abstraction interface
+    │   ├── mongo-event-store.ts     # Mongoose implementation
+    │   ├── in-memory-event-store.ts # Fallback in-memory implementation
+    │   └── event-store.service.ts   # Delegating singleton exporter
     ├── middleware/
     │   ├── logger.middleware.ts   # Request logger (method, path, status, duration)
     │   ├── error.middleware.ts    # Global error handler & 404 handler
@@ -112,12 +131,12 @@ apps/server/
         └── index.ts          # Query parameters & pagination types
 ```
 
-### Route → Middleware → Controller → Service Pattern
+### Storage Abstraction & Polymorphism Pattern
 
-- **Routes**: Map HTTP methods and paths to middlewares and controllers.
-- **Middleware**: Validates incoming payloads, logs HTTP requests, and handles errors.
-- **Controllers**: Handle request/response mapping and call domain services.
-- **Services**: `EventStoreService` encapsulates in-memory storage, session indexing, query filtering, and pagination.
+- **`EventStore` Interface**: Standard interface defining `add`, `addBatch`, `getBySession`, and `query` methods.
+- **`MongoEventStore`**: Mongoose-backed persistence layer writing documents to MongoDB `events` and updating session stats in `sessions`.
+- **`InMemoryEventStore`**: Fallback in-memory storage used when database is offline or unconfigured.
+- **`DelegatingEventStore`**: Singleton proxy dynamically delegating requests to `MongoEventStore` when MongoDB is connected or `InMemoryEventStore` otherwise.
 
 ## Database Architecture (Phase 4)
 
@@ -136,14 +155,13 @@ Content Script / Background Tab Listeners
 Background Service Worker
     │
     │ Log event locally (chrome.storage.local)
-    │ (Phase 3 Backend Integration / Phase 8 Buffer)
     ▼
 POST /api/events  OR  POST /api/events/batch
     │
     ▼
 Express API (apps/server)
     │
-    │ Validate payload & append to EventStoreService
+    │ Validate payload & delegate to EventStore
     ▼
-In-Memory Store (Phase 3) ──▶ MongoDB (Phase 4)
+MongoEventStore (Mongoose) ──▶ MongoDB (events & sessions collections)
 ```

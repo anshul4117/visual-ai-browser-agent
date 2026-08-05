@@ -52,14 +52,15 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] CORS configuration
 - [x] Server Dockerfile & docker-compose service configuration
 
-## Phase 4 — Database
+## Phase 4 — Database Persistence ✅
 
-- [ ] MongoDB connection
-- [ ] Event Mongoose model
-- [ ] Session Mongoose model
-- [ ] Index creation
-- [ ] Batch insertion
-- [ ] Connection error handling
+- [x] MongoDB connection with Mongoose (`apps/server/src/database/connection.ts`)
+- [x] Event Mongoose model & schema (`apps/server/src/models/event.model.ts`)
+- [x] Session Mongoose model & schema (`apps/server/src/models/session.model.ts`)
+- [x] Database indexes (single & compound `sessionId + timestamp`)
+- [x] Polymorphic `EventStore` interface & `MongoEventStore` implementation
+- [x] Efficient `insertMany` batch insertion & automated session metadata updates
+- [x] Graceful database connection & fallback handling
 
 ## Phase 5 — Visual Context
 

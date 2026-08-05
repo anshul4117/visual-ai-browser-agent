@@ -24,10 +24,12 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Event export & clear features in Popup | ✅ Complete | 2 |
 | Express.js Backend Server (`apps/server`) | ✅ Complete | 3 |
 | Single & Batch Event Ingestion APIs | ✅ Complete | 3 |
-| In-Memory Append-Only Event Store | ✅ Complete | 3 |
 | Request Validation & Error Middlewares | ✅ Complete | 3 |
 | Multi-Stage Dockerfile for Server | ✅ Complete | 3 |
-| MongoDB integration | 🔲 Not started | 4 |
+| MongoDB Database Layer & Mongoose Connection | ✅ Complete | 4 |
+| Event & Session Mongoose Models & Schemas | ✅ Complete | 4 |
+| Polymorphic EventStore Abstraction (`MongoEventStore` + `InMemoryEventStore`) | ✅ Complete | 4 |
+| Database Connection Resilience & Graceful Shutdown | ✅ Complete | 4 |
 | Visual context | 🔲 Not started | 5 |
 | AI processing | 🔲 Not started | 6 |
 | Dashboard | 🔲 Not started | 7 |
@@ -35,13 +37,11 @@ Persistent context for the AI coding agent. Updated after each phase.
 
 ## Pending Tasks
 
-Next phase: **Phase 4 — Database Persistence**
+Next phase: **Phase 5 — Visual Context**
 
-- MongoDB connection setup with Mongoose in `apps/server`
-- Event and Session Mongoose schemas & models
-- Database indexes creation
-- Batch insertion persistence
-- Connection error handling and fallback
+- Browser screenshot capture or DOM snapshot module in Chrome Extension
+- Associate visual context with activity events
+- Transmit visual payload to backend API
 
 ## File Ownership
 
@@ -53,7 +53,10 @@ Next phase: **Phase 4 — Database Persistence**
 | `apps/extension/src/storage/` | Extension | Persistent event logger (`event-logger.ts`) |
 | `apps/extension/src/popup/` | Extension | UI controls, statistics, export & clear |
 | `apps/extension/scripts/` | Extension | Build tooling |
-| `apps/server/src/` | Backend | Express.js API, controllers, routes, middlewares, services |
+| `apps/server/src/database/` | Backend | Mongoose connection lifecycle manager |
+| `apps/server/src/models/` | Backend | Mongoose models for `Event` and `Session` |
+| `apps/server/src/services/` | Backend | `EventStore` interface, `MongoEventStore`, `InMemoryEventStore` |
+| `apps/server/src/` | Backend | Express API controllers, routes, middlewares |
 | `apps/server/Dockerfile` | Backend | Server Docker multi-stage build |
 | `packages/shared-types/` | Shared | TypeScript interfaces |
 | `packages/shared-utils/` | Shared | Utility functions |
@@ -69,32 +72,19 @@ Defined in: [docs/api-spec.md](api-spec.md)
 - `GET /api/events` — Query events with filters & pagination
 - `GET /api/events/:sessionId` — Retrieve events for a session
 
-## Internal Messaging Contracts
-
-Defined in: `apps/extension/src/messaging/types.ts`
-
-| Message | Direction | Data |
-|---------|-----------|------|
-| `PAGE_LOADED` | Content → Background | `{ url, title, timestamp }` |
-| `CLICK` | Content → Background | `{ url, title, timestamp, selector, tagName, innerText }` |
-| `SCROLL` | Content → Background | `{ url, title, timestamp, scrollPercentage }` |
-| `VISIBILITY_CHANGED` | Content → Background | `{ url, title, timestamp, visibilityState }` |
-| `GET_STATUS` | Popup → Background | (none) |
-| `CLEAR_EVENTS` | Popup → Background | (none) |
-| `EXPORT_EVENTS` | Popup → Background | (none) |
-
 ## Database Contracts
 
 Defined in: [docs/database.md](database.md)
 
-- `events` collection — see database.md for schema
-- `sessions` collection — see database.md for schema
+- `events` collection (`EventModel`) — see database.md for schema & indexes
+- `sessions` collection (`SessionModel`) — see database.md for schema & indexes
 
-## Server Build System
+## Server Build & Storage System
 
+- **Database:** MongoDB 7 via Mongoose (`mongoose`)
+- **Storage Pattern:** `EventStore` interface with `MongoEventStore` primary and `InMemoryEventStore` fallback
 - **Build Tool:** TypeScript `tsc` outputting to `apps/server/dist/`
-- **Dev Runner:** `tsx watch src/index.ts`
-- **Docker:** `apps/server/Dockerfile` (multi-stage Alpine Node 20)
+- **Docker:** Multi-stage Alpine Node 20 container linking server with `mongodb` service
 
 ## Known Assumptions
 
@@ -102,10 +92,10 @@ Defined in: [docs/database.md](database.md)
 2. AI processing reads from the events collection, does not modify the core event pipeline
 3. User consent is obtained through Chrome extension permission prompts
 4. No user authentication in MVP — optional `userId` field for future use
-5. In-memory event store used for Phase 3 prior to MongoDB integration in Phase 4
+5. Server automatically connects to MongoDB via `MONGODB_URI` environment variable, falling back gracefully if database is offline.
 
 ## Known Limitations
 
 1. Chrome-only — no Firefox/Safari support in MVP
 2. No real-time dashboard — polling or page refresh for updates
-3. In-memory event storage in Phase 3 resets on server restart until Phase 4 (MongoDB persistence)
+3. Screenshot capture may be limited by Chrome's permission model

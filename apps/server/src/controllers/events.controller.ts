@@ -7,10 +7,10 @@ import type { EventQueryParams } from '../types/index.js';
  * Controller for creating a single event.
  * POST /api/events
  */
-export function createEvent(req: Request, res: Response, next: NextFunction): void {
+export async function createEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const event: ActivityEvent = req.body;
-    eventStore.addEvent(event);
+    await eventStore.add(event);
 
     const response: ApiSuccessResponse = {
       success: true,
@@ -26,10 +26,10 @@ export function createEvent(req: Request, res: Response, next: NextFunction): vo
  * Controller for creating a batch of events.
  * POST /api/events/batch
  */
-export function createBatchEvents(req: Request, res: Response, next: NextFunction): void {
+export async function createBatchEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const events: ActivityEvent[] = req.body;
-    const added = eventStore.addBatch(events);
+    const added = await eventStore.addBatch(events);
 
     res.status(201).json({
       success: true,
@@ -44,7 +44,7 @@ export function createBatchEvents(req: Request, res: Response, next: NextFunctio
  * Controller for querying events with filters and pagination.
  * GET /api/events
  */
-export function getEvents(req: Request, res: Response, next: NextFunction): void {
+export async function getEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const params: EventQueryParams = {
       sessionId: req.query.sessionId as string | undefined,
@@ -56,7 +56,7 @@ export function getEvents(req: Request, res: Response, next: NextFunction): void
       offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
     };
 
-    const result = eventStore.queryEvents(params);
+    const result = await eventStore.query(params);
 
     res.status(200).json({
       success: true,
@@ -71,7 +71,7 @@ export function getEvents(req: Request, res: Response, next: NextFunction): void
  * Controller for retrieving events for a specific session ID.
  * GET /api/events/:sessionId
  */
-export function getEventsBySession(req: Request, res: Response, next: NextFunction): void {
+export async function getEventsBySession(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { sessionId } = req.params;
     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
@@ -85,7 +85,7 @@ export function getEventsBySession(req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    const result = eventStore.getBySessionId(sessionId, limit, offset);
+    const result = await eventStore.getBySession(sessionId, limit, offset);
 
     res.status(200).json({
       success: true,
