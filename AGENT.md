@@ -16,7 +16,7 @@ Original assignment:
 
 ## Current Phase
 
-Phase 1 — Extension Foundation (Complete)
+Phase 2 — Browser Activity Tracking (Complete)
 
 ## Architecture Constraints
 
