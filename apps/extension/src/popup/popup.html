@@ -25,6 +25,26 @@
       </div>
     </div>
 
+    <!-- AI Vision Analysis Card Section -->
+    <div class="ai-card">
+      <div class="ai-card-header">
+        <span class="ai-card-title">🤖 AI Vision Insights</span>
+        <span id="ai-category-badge" class="badge badge-category">Development</span>
+      </div>
+      <div class="ai-card-body">
+        <p id="ai-summary-text" class="ai-summary">Waiting for first screenshot analysis...</p>
+        <div class="score-container">
+          <div class="score-label-row">
+            <span class="score-title">Productivity Score</span>
+            <span id="ai-score-value" class="score-value">85 / 100</span>
+          </div>
+          <div class="score-bar-bg">
+            <div id="ai-score-bar" class="score-bar-fill" style="width: 85%;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Visual Context Statistics Section -->
     <div class="info-section">
       <div class="info-row">
@@ -40,12 +60,8 @@
         <span id="last-capture-time" class="info-value">—</span>
       </div>
       <div class="info-row">
-        <span class="info-label">Offline Event Queue</span>
+        <span class="info-label">Offline Queue</span>
         <span id="queued-count" class="info-value">0 items</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Current Tab</span>
-        <span id="current-url" class="info-value url-text" title="">—</span>
       </div>
     </div>
 
@@ -59,15 +75,18 @@
     </div>
 
     <!-- Primary Action Buttons -->
-    <div class="actions-section">
-      <button id="btn-view-screenshot" class="btn btn-info" type="button">View Screenshot</button>
-      <button id="btn-sync-now" class="btn btn-success" type="button">Sync Now</button>
-      <button id="btn-export" class="btn btn-primary" type="button">Export JSON</button>
+    <div class="actions-grid">
+      <button id="btn-analyze" class="btn btn-ai" type="button">Analyze Latest Screenshot</button>
+      <div class="actions-row">
+        <button id="btn-view-screenshot" class="btn btn-info" type="button">View Image</button>
+        <button id="btn-sync-now" class="btn btn-success" type="button">Sync Now</button>
+        <button id="btn-export" class="btn btn-primary" type="button">Export</button>
+      </div>
     </div>
 
     <!-- Secondary Action -->
     <div class="actions-secondary">
-      <button id="btn-clear" class="btn btn-danger btn-block" type="button">Clear Local Queues</button>
+      <button id="btn-clear" class="btn btn-danger btn-block" type="button">Clear Queues</button>
     </div>
 
     <!-- Screenshot Modal Preview -->

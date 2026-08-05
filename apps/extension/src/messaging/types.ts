@@ -4,7 +4,7 @@
  * Defines a typed message protocol for content script ↔ background ↔ popup.
  */
 
-import type { ActivityEvent, CreateScreenshotRequest } from '@visual-ai/shared-types';
+import type { ActivityEvent, CreateScreenshotRequest, ScreenshotAnalysisRecord } from '@visual-ai/shared-types';
 
 // ─── Message Types ───────────────────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ export type MessageType =
   | 'GET_STATUS'
   | 'GET_SYNC_STATUS'
   | 'GET_LATEST_SCREENSHOT'
+  | 'ANALYZE_LATEST'
   | 'SYNC_NOW'
   | 'SET_BACKEND_URL'
   | 'CLEAR_EVENTS'
@@ -82,6 +83,10 @@ export interface GetLatestScreenshotMessage extends BaseMessage {
   type: 'GET_LATEST_SCREENSHOT';
 }
 
+export interface AnalyzeLatestMessage extends BaseMessage {
+  type: 'ANALYZE_LATEST';
+}
+
 export interface SyncNowMessage extends BaseMessage {
   type: 'SYNC_NOW';
 }
@@ -107,6 +112,7 @@ export type ExtensionMessage =
   | GetStatusMessage
   | GetSyncStatusMessage
   | GetLatestScreenshotMessage
+  | AnalyzeLatestMessage
   | SyncNowMessage
   | SetBackendUrlMessage
   | ClearEventsMessage
@@ -128,11 +134,18 @@ export interface StatusResponse {
   screenshotCount: number;
   lastCaptureTime: string | null;
   latestScreenshotDataUrl: string | null;
+  latestAnalysis: ScreenshotAnalysisRecord | null;
 }
 
 export interface GetLatestScreenshotResponse {
   success: boolean;
   screenshot: CreateScreenshotRequest | null;
+}
+
+export interface AnalyzeLatestResponse {
+  success: boolean;
+  analysis: ScreenshotAnalysisRecord | null;
+  error?: string;
 }
 
 export interface SyncResponse {

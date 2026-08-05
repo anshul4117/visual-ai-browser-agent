@@ -15,6 +15,12 @@ http://localhost:3000/api
 | `POST` | `/api/events/batch` | Record a batch of activity events |
 | `GET` | `/api/events` | Query events with filters and pagination |
 | `GET` | `/api/events/:sessionId` | Get events for a specific session ID |
+| `POST` | `/api/screenshots` | Upload screenshot image & metadata |
+| `GET` | `/api/screenshots` | Query screenshots by sessionId |
+| `GET` | `/api/screenshots/latest` | Get latest recorded screenshot |
+| `GET` | `/api/analysis/:screenshotId` | Get AI vision analysis for a screenshot |
+| `GET` | `/api/analysis/session/:sessionId` | Get AI vision analyses for a session |
+| `POST` | `/api/analysis/trigger/:screenshotId` | Explicitly trigger AI analysis for a screenshot |
 
 ---
 
@@ -57,91 +63,68 @@ Create a new single activity event.
 }
 ```
 
-**Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `sessionId` | string | Yes | Unique session identifier |
-| `url` | string | Yes | URL where the event occurred |
-| `title` | string | Yes | Page title |
-| `eventType` | string | Yes | Event type string (`click`, `page_load`, `scroll`, `tab_switch`, etc.) |
-| `timestamp` | string | Yes | ISO 8601 timestamp string |
-| `metadata` | object | No | Event-specific metadata (defaults to `{}`) |
-
-**Success Response (201 Created):**
-
-```json
-{
-  "success": true
-}
-```
-
-**Error Response (400 Bad Request):**
-
-```json
-{
-  "success": false,
-  "error": "Missing or invalid required field: sessionId"
-}
-```
-
 ---
 
-### POST /api/events/batch
+### POST /api/screenshots
 
-Create a batch of activity events in a single request.
+Upload a visual context screenshot image.
 
 **Request Body:**
 
 ```json
-[
-  {
-    "sessionId": "vai_m1abc123_x7y8z9",
-    "url": "https://example.com/home",
-    "title": "Home",
-    "eventType": "page_load",
-    "timestamp": "2026-08-05T21:31:00.000Z",
-    "metadata": {}
-  },
-  {
-    "sessionId": "vai_m1abc123_x7y8z9",
-    "url": "https://example.com/home",
-    "title": "Home",
-    "eventType": "scroll",
-    "timestamp": "2026-08-05T21:31:05.000Z",
-    "metadata": { "scrollPercentage": 50 }
-  }
-]
+{
+  "screenshotId": "scr_m1abc123_z9y8x7",
+  "sessionId": "vai_m1abc123_x7y8z9",
+  "eventId": "evt_123",
+  "url": "https://example.com/page",
+  "title": "Example Page",
+  "capturedAt": "2026-08-05T21:30:00.000Z",
+  "dataUrl": "data:image/png;base64,...",
+  "width": 1280,
+  "height": 720
+}
 ```
-
-*Note: The body can also be an object containing an `"events"` array: `{ "events": [...] }`.*
 
 **Success Response (201 Created):**
 
 ```json
 {
   "success": true,
-  "count": 2
+  "screenshotId": "scr_m1abc123_z9y8x7",
+  "filePath": "/uploads/scr_m1abc123_z9y8x7.png"
 }
 ```
 
 ---
 
-### GET /api/events
+### GET /api/analysis/:screenshotId
 
-Retrieve stored activity events with query parameters filtering.
+Retrieve AI Vision analysis for a specific screenshot.
 
-**Query Parameters:**
+**Success Response (200 OK):**
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `sessionId` | string | No | Filter by session ID |
-| `eventType` | string | No | Filter by event type |
-| `url` | string | No | Filter by URL (partial case-insensitive match) |
-| `from` | string | No | Filter events after timestamp (ISO 8601) |
-| `to` | string | No | Filter events before timestamp (ISO 8601) |
-| `limit` | number | No | Max results (default: 100, max: 1000) |
-| `offset` | number | No | Pagination offset (default: 0) |
+```json
+{
+  "success": true,
+  "data": {
+    "screenshotId": "scr_m1abc123_z9y8x7",
+    "sessionId": "vai_m1abc123_x7y8z9",
+    "summary": "User is actively developing code on GitHub.",
+    "category": "Development",
+    "productivityScore": 95,
+    "entities": ["GitHub", "TypeScript", "Repository"],
+    "confidence": 0.95,
+    "analyzedAt": "2026-08-05T21:30:05.000Z",
+    "model": "gemini-2.5-flash"
+  }
+}
+```
+
+---
+
+### GET /api/analysis/session/:sessionId
+
+Retrieve all AI Vision analyses for a session.
 
 **Success Response (200 OK):**
 
@@ -150,54 +133,17 @@ Retrieve stored activity events with query parameters filtering.
   "success": true,
   "data": [
     {
+      "screenshotId": "scr_m1abc123_z9y8x7",
       "sessionId": "vai_m1abc123_x7y8z9",
-      "url": "https://example.com/page",
-      "title": "Example Page",
-      "eventType": "click",
-      "timestamp": "2026-08-05T21:30:00.000Z",
-      "metadata": {
-        "selector": "#submit-btn",
-        "tagName": "BUTTON",
-        "innerText": "Submit"
-      }
+      "summary": "User is actively developing code on GitHub.",
+      "category": "Development",
+      "productivityScore": 95,
+      "entities": ["GitHub", "TypeScript"],
+      "confidence": 0.95,
+      "analyzedAt": "2026-08-05T21:30:05.000Z",
+      "model": "gemini-2.5-flash"
     }
   ],
-  "total": 1,
-  "limit": 100,
-  "offset": 0
-}
-```
-
----
-
-### GET /api/events/:sessionId
-
-Retrieve events for a specific session ID.
-
-**Query Parameters:**
-
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `limit` | number | No | Max results (default: 100, max: 1000) |
-| `offset` | number | No | Pagination offset (default: 0) |
-
-**Success Response (200 OK):**
-
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "sessionId": "vai_m1abc123_x7y8z9",
-      "url": "https://example.com/page",
-      "title": "Example Page",
-      "eventType": "click",
-      "timestamp": "2026-08-05T21:30:00.000Z",
-      "metadata": {}
-    }
-  ],
-  "total": 1,
-  "limit": 100,
-  "offset": 0
+  "total": 1
 }
 ```

@@ -83,11 +83,15 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Screenshot Mongoose model & MongoDB metadata persistence (`apps/server/src/models/screenshot.model.ts`)
 - [x] Popup visual capture statistics & **View Latest Screenshot** preview modal
 
-## Phase 7 — AI Processing
+## Phase 7 — AI Vision Analysis ✅
 
-- [ ] Event summarization
-- [ ] Activity classification
-- [ ] Timeline generation
+- [x] Gemini Vision provider interface & implementation (`apps/server/src/ai/vision-client.ts`)
+- [x] Prompt engineering for strict JSON output (`apps/server/src/ai/prompt.ts`)
+- [x] Asynchronous background AI queue service (`apps/server/src/ai/queue.service.ts`)
+- [x] Screenshot Analysis service (`apps/server/src/ai/analysis.service.ts`)
+- [x] Mongoose model for `ScreenshotAnalysis` (`apps/server/src/models/screenshot-analysis.model.ts`)
+- [x] Analysis API endpoints (`GET/POST /api/analysis`)
+- [x] Popup AI Insights card, category badge, productivity score bar & Analyze button
 
 ## Phase 8 — Dashboard
 
