@@ -1,20 +1,21 @@
 /**
  * Popup Script
  *
- * Displays extension status, session ID, connection status, queued count, last sync time,
- * screenshot capture count, and latest capture timestamp.
- * Provides controls to change Backend Server URL, trigger Sync Now, view latest screenshot, export JSON, and clear queues.
+ * Displays extension status, session ID, connection status, screenshot stats, and AI Vision insights.
+ * Provides controls for AI screenshot analysis, manual sync, backend URL configuration, JSON export, and clearing queues.
  */
 
 import type {
   GetStatusMessage,
   GetLatestScreenshotMessage,
+  AnalyzeLatestMessage,
   SyncNowMessage,
   SetBackendUrlMessage,
   ClearEventsMessage,
   ExportEventsMessage,
   StatusResponse,
   GetLatestScreenshotResponse,
+  AnalyzeLatestResponse,
   SyncResponse,
   SetBackendUrlResponse,
   ClearEventsResponse,
@@ -32,7 +33,15 @@ const sessionIdElement = document.getElementById('session-id') as HTMLSpanElemen
 const screenshotCountElement = document.getElementById('screenshot-count') as HTMLSpanElement;
 const lastCaptureTimeElement = document.getElementById('last-capture-time') as HTMLSpanElement;
 const queuedCountElement = document.getElementById('queued-count') as HTMLSpanElement;
-const currentUrlElement = document.getElementById('current-url') as HTMLSpanElement;
+
+// AI Vision Card Elements
+const aiCategoryBadge = document.getElementById('ai-category-badge') as HTMLSpanElement;
+const aiSummaryText = document.getElementById('ai-summary-text') as HTMLParagraphElement;
+const aiScoreValue = document.getElementById('ai-score-value') as HTMLSpanElement;
+const aiScoreBar = document.getElementById('ai-score-bar') as HTMLDivElement;
+
+// Action Buttons
+const btnAnalyze = document.getElementById('btn-analyze') as HTMLButtonElement;
 const btnViewScreenshot = document.getElementById('btn-view-screenshot') as HTMLButtonElement;
 const btnSyncNow = document.getElementById('btn-sync-now') as HTMLButtonElement;
 const btnExport = document.getElementById('btn-export') as HTMLButtonElement;
@@ -50,6 +59,7 @@ async function sendMessage<T>(
   message:
     | GetStatusMessage
     | GetLatestScreenshotMessage
+    | AnalyzeLatestMessage
     | SyncNowMessage
     | SetBackendUrlMessage
     | ClearEventsMessage
@@ -67,16 +77,6 @@ async function sendMessage<T>(
 }
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
-
-async function getActiveTabUrl(): Promise<string> {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  return tab?.url || '—';
-}
-
-function truncateUrl(url: string, maxLength: number = 36): string {
-  if (url.length <= maxLength) return url;
-  return url.substring(0, maxLength - 3) + '...';
-}
 
 function formatRelativeTime(isoString: string | null): string {
   if (!isoString) return 'Never';
@@ -136,14 +136,21 @@ async function updateUI(): Promise<void> {
     // Screenshot stats
     screenshotCountElement.textContent = String(status.screenshotCount);
     lastCaptureTimeElement.textContent = formatRelativeTime(status.lastCaptureTime);
-
-    // Queued count
     queuedCountElement.textContent = `${status.queuedCount} item${status.queuedCount === 1 ? '' : 's'}`;
 
-    // Active Tab URL
-    const url = await getActiveTabUrl();
-    currentUrlElement.textContent = truncateUrl(url);
-    currentUrlElement.title = url;
+    // AI Analysis card
+    if (status.latestAnalysis) {
+      const { summary, category, productivityScore } = status.latestAnalysis;
+      aiSummaryText.textContent = summary || 'No summary available.';
+      aiCategoryBadge.textContent = category || 'General';
+      aiScoreValue.textContent = `${productivityScore} / 100`;
+      aiScoreBar.style.width = `${Math.min(Math.max(productivityScore, 0), 100)}%`;
+    } else {
+      aiSummaryText.textContent = 'No AI analysis completed yet for this session.';
+      aiCategoryBadge.textContent = 'Pending';
+      aiScoreValue.textContent = '— / 100';
+      aiScoreBar.style.width = '0%';
+    }
 
   } catch (error) {
     console.error('[Visual AI] Popup update error:', error);
@@ -155,6 +162,34 @@ async function updateUI(): Promise<void> {
 }
 
 // ─── User Actions ────────────────────────────────────────────────────────────
+
+/**
+ * Handle Analyze Latest Screenshot button.
+ */
+async function handleAnalyzeLatest(): Promise<void> {
+  try {
+    btnAnalyze.disabled = true;
+    btnAnalyze.textContent = 'Analyzing with AI...';
+
+    const res = await sendMessage<AnalyzeLatestResponse>({ type: 'ANALYZE_LATEST' });
+
+    if (res.success && res.analysis) {
+      aiSummaryText.textContent = res.analysis.summary;
+      aiCategoryBadge.textContent = res.analysis.category;
+      aiScoreValue.textContent = `${res.analysis.productivityScore} / 100`;
+      aiScoreBar.style.width = `${res.analysis.productivityScore}%`;
+    } else {
+      alert(res.error || 'Failed to generate AI analysis.');
+    }
+  } catch (error) {
+    console.error('[Visual AI] AI analysis error:', error);
+    alert('AI analysis failed. Please verify backend connectivity.');
+  } finally {
+    btnAnalyze.disabled = false;
+    btnAnalyze.textContent = 'Analyze Latest Screenshot';
+    await updateUI();
+  }
+}
 
 /**
  * Handle View Latest Screenshot button.
@@ -267,6 +302,7 @@ async function handleClear(): Promise<void> {
 document.addEventListener('DOMContentLoaded', async () => {
   await updateUI();
 
+  btnAnalyze.addEventListener('click', handleAnalyzeLatest);
   btnViewScreenshot.addEventListener('click', handleViewScreenshot);
   btnSyncNow.addEventListener('click', handleSyncNow);
   btnSaveUrl.addEventListener('click', handleSaveBackendUrl);

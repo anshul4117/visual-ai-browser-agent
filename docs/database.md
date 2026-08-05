@@ -98,6 +98,35 @@ Stores visual context screenshot metadata. Model: `ScreenshotModel` (`apps/serve
 { sessionId: 1, capturedAt: -1 } // compound index for session visual timeline
 ```
 
+---
+
+### screenshot_analyses
+
+Stores structured AI Vision model analysis results for screenshots. Model: `ScreenshotAnalysisModel` (`apps/server/src/models/screenshot-analysis.model.ts`).
+
+| Field | Mongoose Type | Required | Description |
+|-------|--------------|----------|-------------|
+| `_id` | ObjectId | Auto | MongoDB document ID |
+| `screenshotId` | String | Yes | Links analysis to target screenshot (unique index) |
+| `sessionId` | String | Yes | Session ID (indexed) |
+| `summary` | String | Yes | 1-2 sentence AI summary of browser activity |
+| `category` | String | Yes | Activity classification category (indexed) |
+| `productivityScore` | Number | Yes | Productivity score (0 - 100) |
+| `entities` | [String] | Yes | Recognized visible entities/tech stack names |
+| `confidence` | Number | Yes | Model confidence score (0.0 - 1.0) |
+| `analyzedAt` | Date | Yes | Timestamp when analysis occurred (indexed) |
+| `model` | String | Yes | Model identifier (e.g., `gemini-2.5-flash`) |
+| `createdAt` | Date | Auto | Mongoose timestamp |
+| `updatedAt` | Date | Auto | Mongoose timestamp |
+
+**Indexes:**
+
+```javascript
+{ screenshotId: 1 } // unique index
+{ category: 1 }     // index for category filtering
+{ sessionId: 1, analyzedAt: -1 } // compound index for session analysis timeline
+```
+
 ## Rules
 
 - All field names use `camelCase`

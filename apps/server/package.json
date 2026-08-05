@@ -12,6 +12,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@google/genai": "^2.15.0",
     "@visual-ai/shared-types": "*",
     "@visual-ai/shared-utils": "*",
     "cors": "^2.8.5",

@@ -124,6 +124,43 @@ export interface CreateScreenshotRequest {
   height?: number;
 }
 
+// ─── AI Vision Analysis ────────────────────────────────────────────────────────
+
+/**
+ * AI vision analysis record.
+ * Matches docs/database.md screenshot_analyses collection.
+ */
+export interface ScreenshotAnalysisRecord {
+  screenshotId: string;
+  sessionId: string;
+  summary: string;
+  category: string;
+  productivityScore: number;
+  entities: string[];
+  confidence: number;
+  analyzedAt: string;
+  model: string;
+}
+
+/**
+ * Response for GET /api/analysis/:screenshotId
+ */
+export interface AnalysisResponse {
+  success: boolean;
+  data?: ScreenshotAnalysisRecord;
+  error?: string;
+}
+
+/**
+ * Response for GET /api/analysis/session/:sessionId
+ */
+export interface SessionAnalysisResponse {
+  success: boolean;
+  data?: ScreenshotAnalysisRecord[];
+  total?: number;
+  error?: string;
+}
+
 // ─── API Contracts ───────────────────────────────────────────────────────────
 
 /**

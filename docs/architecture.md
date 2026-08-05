@@ -4,9 +4,9 @@
 
 The system follows a three-tier architecture:
 
-1. **Chrome Extension** — Captures browser events and visual context (screenshots)
-2. **Backend API** — Receives, validates, and routes events & visual context
-3. **Database & Storage** — Persists events, sessions, and visual screenshots in MongoDB & local disk (`uploads/`)
+1. **Chrome Extension** — Captures browser events, visual context (screenshots), and renders AI Vision Insights
+2. **Backend API & AI Engine** — Ingests events/screenshots, manages async queues, and invokes Google Gemini Vision API
+3. **Database & Storage** — Persists events, sessions, screenshots, and AI vision analyses in MongoDB & local disk (`uploads/`)
 
 ## Extension Architecture & Visual Synchronization
 
@@ -22,9 +22,9 @@ The system follows a three-tier architecture:
 │  ┌─────────────────┐           │  • Event & Screenshot Queues      │  │
 │  │  Popup UI       │──sendMessage▶│  • Sync Pipeline to Express        │  │
 │  │  • Status badge │           └──────────────┬─────────────────────┘  │
-│  │  • Screenshot   │                          │                        │
-│  │    modal view   │                          ▼                        │
-│  │  • Sync Now     │           ┌────────────────────────────────────┐  │
+│  │  • AI Insights  │                          │                        │
+│  │    & Score bar  │                          ▼                        │
+│  │  • Analyze Now  │           ┌────────────────────────────────────┐  │
 │  │  • URL Config   │           │  Local Offline Queues              │  │
 │  └─────────────────┘           │  • vai_events (storage.local)      │  │
 │                                │  • vai_screenshots (storage.local) │  │
@@ -38,6 +38,7 @@ The system follows a three-tier architecture:
                                                 │
                                     HTTP POST /api/events/batch
                                     HTTP POST /api/screenshots
+                                    GET /api/analysis/:screenshotId
                                                 │
                                                 ▼
 ```
@@ -50,13 +51,13 @@ apps/extension/
 │   └── build.ts              # esbuild build script
 ├── src/
 │   ├── background/
-│   │   └── index.ts          # Service worker — router, queue & sync pipeline, visual capture
+│   │   └── index.ts          # Service worker — router, queue & sync pipeline, AI vision handler
 │   ├── content/
 │   │   └── index.ts          # Content script — PAGE_LOADED, CLICK, SCROLL, VISIBILITY
 │   ├── messaging/
-│   │   └── types.ts          # Typed message protocol & Screenshot messaging interfaces
+│   │   └── types.ts          # Message protocol & AI Analysis response types
 │   ├── network/
-│   │   └── client.ts         # Network client — fetchWithTimeout, POST events/batch & POST screenshots
+│   │   └── client.ts         # Network client — POST events, POST screenshots, GET/POST analysis
 │   ├── storage/
 │   │   ├── event-logger.ts   # Offline event queue module (chrome.storage.local)
 │   │   └── screenshot-logger.ts # Offline screenshot queue module (chrome.storage.local)
@@ -65,32 +66,16 @@ apps/extension/
 │   │   ├── image-utils.ts    # Base64 Data URL to Blob & dimension extraction helpers
 │   │   └── scheduler.ts      # Periodic 30s visual context capture scheduler
 │   ├── popup/
-│   │   ├── popup.html        # Popup UI (status, connection, screenshot stats, modal preview)
-│   │   ├── popup.css         # Dark theme styles & modal overlay styling
-│   │   └── popup.ts          # Popup logic — screenshot view modal, manual sync, URL config
+│   │   ├── popup.html        # Popup UI (status, AI Insights card, category badge, score bar)
+│   │   ├── popup.css         # Dark theme styles, AI card & score bar styling
+│   │   └── popup.ts          # Popup logic — AI analyze button, view screenshot modal, URL config
 │   └── manifest.json         # Manifest V3 config
 ├── dist/                     # Build output (load as unpacked extension)
 ├── package.json
 └── tsconfig.json
 ```
 
-### Visual Capture & Upload Flow
-
-1. **Capture Triggers**:
-   - Navigation & tab update events (`url_change`, `page_load`).
-   - Tab switch events (`tab_switch`).
-   - Periodic 30-second interval timer managed by `scheduler.ts` when tab remains active.
-
-2. **Throttling & Focus Validation**:
-   - `captureVisibleTab` checks browser window focus (`chrome.windows.getLastFocused`).
-   - Throttled to a minimum 30-second interval (`MIN_CAPTURE_INTERVAL_MS = 30000`).
-
-3. **Temporary Local Queue & Upload**:
-   - Captured PNG Data URLs are saved to `chrome.storage.local` under key `vai_screenshots`.
-   - On background sync flush, pending screenshots are transmitted via HTTP POST to `/api/screenshots`.
-   - Upon HTTP `201 Created` response, uploaded screenshots are purged from `chrome.storage.local`.
-
-## Backend Architecture
+## Backend & AI Engine Architecture
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -101,23 +86,34 @@ apps/extension/
 │  │  • CORS         │    │  • /api/health     │    │  • Health       │  │
 │  │  • JSON 50mb    │    │  • /api/events     │    │  • Events       │  │
 │  │  • Logger       │    │  • /api/screenshots│    │  • Screenshots  │  │
-│  │  • Validator    │    └────────────────────┘    └────────┬────────┘  │
-│  └─────────────────┘                                       │           │
+│  │  • Validator    │    │  • /api/analysis   │    │  • Analysis     │  │
+│  └─────────────────┘    └────────────────────┘    └────────┬────────┘  │
+│                                                            │           │
 │                                                            ▼           │
 │                                                   ┌─────────────────┐  │
-│                                                   │  Local Storage  │  │
-│                                                   │  apps/server/   │  │
-│                                                   │  uploads/*.png  │  │
-│                                                   └─────────────────┘  │
-└────────────────────────────────────────────────────────────┬───────────┘
+│                                                   │ Async Queue     │  │
+│                                                   │ (queue.service) │  │
+│                                                   └────────┬────────┘  │
+└────────────────────────────────────────────────────────────┼───────────┘
                                                              │
                                                              ▼
-                                                ┌────────────────────────┐
-                                                │ MongoDB 7 (Mongoose)   │
-                                                │ • events               │
-                                                │ • sessions             │
-                                                │ • screenshots          │
-                                                └────────────────────────┘
+                                                    ┌─────────────────┐
+                                                    │ Analysis Service│
+                                                    │(analysis.service│
+                                                    └────────┬────────┘
+                                                             │
+                                                             ▼
+                                                    ┌─────────────────┐
+                                                    │ Vision Client   │
+                                                    │ (IVisionProvider│
+                                                    └────────┬────────┘
+                                                             │
+                                          ┌──────────────────┴──────────────────┐
+                                          ▼                                     ▼
+                              ┌───────────────────────┐             ┌───────────────────────┐
+                              │ GeminiVisionProvider  │             │ MockVisionProvider    │
+                              │ (Gemini 2.5 Flash API)│             │ (Development Fallback)│
+                              └───────────────────────┘             └───────────────────────┘
 ```
 
 ## Database Architecture
