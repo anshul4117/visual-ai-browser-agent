@@ -4,7 +4,7 @@
  * Defines a typed message protocol for content script ↔ background ↔ popup.
  */
 
-import type { ActivityEvent } from '@visual-ai/shared-types';
+import type { ActivityEvent, CreateScreenshotRequest } from '@visual-ai/shared-types';
 
 // ─── Message Types ───────────────────────────────────────────────────────────
 
@@ -15,6 +15,7 @@ export type MessageType =
   | 'VISIBILITY_CHANGED'
   | 'GET_STATUS'
   | 'GET_SYNC_STATUS'
+  | 'GET_LATEST_SCREENSHOT'
   | 'SYNC_NOW'
   | 'SET_BACKEND_URL'
   | 'CLEAR_EVENTS'
@@ -77,6 +78,10 @@ export interface GetSyncStatusMessage extends BaseMessage {
   type: 'GET_SYNC_STATUS';
 }
 
+export interface GetLatestScreenshotMessage extends BaseMessage {
+  type: 'GET_LATEST_SCREENSHOT';
+}
+
 export interface SyncNowMessage extends BaseMessage {
   type: 'SYNC_NOW';
 }
@@ -101,6 +106,7 @@ export type ExtensionMessage =
   | VisibilityChangedMessage
   | GetStatusMessage
   | GetSyncStatusMessage
+  | GetLatestScreenshotMessage
   | SyncNowMessage
   | SetBackendUrlMessage
   | ClearEventsMessage
@@ -119,6 +125,14 @@ export interface StatusResponse {
   queuedCount: number;
   lastSyncTime: string | null;
   backendUrl: string;
+  screenshotCount: number;
+  lastCaptureTime: string | null;
+  latestScreenshotDataUrl: string | null;
+}
+
+export interface GetLatestScreenshotResponse {
+  success: boolean;
+  screenshot: CreateScreenshotRequest | null;
 }
 
 export interface SyncResponse {

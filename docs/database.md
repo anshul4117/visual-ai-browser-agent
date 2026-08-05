@@ -35,19 +35,6 @@ Stores individual browser activity events. Model: `EventModel` (`apps/server/src
 - `visibility_changed`
 - `time_on_page`
 
-**metadata fields (vary by eventType):**
-
-| Field | Used By | Type | Description |
-|-------|---------|------|-------------|
-| `selector` | click, form_interaction | string | CSS selector of element |
-| `tagName` | click, form_interaction | string | HTML tag name |
-| `innerText` | click | string | Truncated element text |
-| `scrollPercentage` | scroll | number | Scroll depth (0-100) |
-| `visibilityState` | visibility_changed | string | Document visibility state (`visible`, `hidden`) |
-| `duration` | time_on_page | number | Time in milliseconds |
-| `previousUrl` | url_change | string | URL before navigation |
-| `previousTabId` | tab_switch | number | Tab ID before switch |
-
 **Indexes:**
 
 ```javascript
@@ -83,9 +70,36 @@ Stores browsing session records. Model: `SessionModel` (`apps/server/src/models/
 { startedAt: -1 } // index for recent session queries
 ```
 
+---
+
+### screenshots
+
+Stores visual context screenshot metadata. Model: `ScreenshotModel` (`apps/server/src/models/screenshot.model.ts`).
+
+| Field | Mongoose Type | Required | Description |
+|-------|--------------|----------|-------------|
+| `_id` | ObjectId | Auto | MongoDB document ID |
+| `screenshotId` | String | Yes | Unique screenshot identifier (unique index) |
+| `sessionId` | String | Yes | Unique session identifier (indexed) |
+| `eventId` | String | No | Optional ID of associated activity event |
+| `url` | String | Yes | Tab URL when capture occurred |
+| `title` | String | Yes | Tab title when capture occurred |
+| `capturedAt` | Date | Yes | ISO 8601 capture timestamp (indexed) |
+| `filePath` | String | Yes | Local file relative path (e.g. `/uploads/scr_123.png`) |
+| `width` | Number | No | Image width in pixels |
+| `height` | Number | No | Image height in pixels |
+| `createdAt` | Date | Auto | Mongoose timestamp |
+| `updatedAt` | Date | Auto | Mongoose timestamp |
+
+**Indexes:**
+
+```javascript
+{ screenshotId: 1 } // unique index
+{ sessionId: 1, capturedAt: -1 } // compound index for session visual timeline
+```
+
 ## Rules
 
 - All field names use `camelCase`
 - Timestamps are stored as native MongoDB `Date` objects
-- The `metadata` field is schemaless (`Schema.Types.Mixed`) to accommodate custom event payloads
-- Sessions are automatically created or updated via `$setOnInsert`, `$set`, `$inc` during event ingestion
+- Raw screenshot binaries are stored under `apps/server/uploads/` and served via static route `/uploads/`

@@ -16,7 +16,7 @@ Original assignment:
 
 ## Current Phase
 
-Phase 5 — Extension → Backend Integration (Complete)
+Phase 6 — Visual Context Capture (Complete)
 
 ## Architecture Constraints
 

@@ -32,19 +32,22 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Real-Time Extension-to-Backend Sync Pipeline | ✅ Complete | 5 |
 | Network Client with Timeout & Health Checks | ✅ Complete | 5 |
 | Offline Queue with Exponential Backoff Retry | ✅ Complete | 5 |
-| Configurable Backend Server URL (`chrome.storage.sync`) | ✅ Complete | 5 |
-| Connection Status & Manual Sync in Popup UI | ✅ Complete | 5 |
-| Visual context | 🔲 Not started | 6 |
+| Visual Context Capture (`chrome.tabs.captureVisibleTab`) | ✅ Complete | 6 |
+| Throttled 30s Capture Scheduler & Window Focus Check | ✅ Complete | 6 |
+| Screenshot Ingestion Endpoint (`POST /api/screenshots`) | ✅ Complete | 6 |
+| Local Image File Persistence (`apps/server/uploads/`) | ✅ Complete | 6 |
+| Screenshot Mongoose Model & MongoDB Metadata | ✅ Complete | 6 |
+| Popup Visual Stats & Latest Screenshot Preview Modal | ✅ Complete | 6 |
 | AI processing | 🔲 Not started | 7 |
 | Dashboard | 🔲 Not started | 8 |
 
 ## Pending Tasks
 
-Next phase: **Phase 6 — Visual Context**
+Next phase: **Phase 7 — AI Processing**
 
-- Browser screenshot capture or DOM snapshot module in Chrome Extension
-- Associate visual context with activity events
-- Transmit visual payload to backend API
+- Event summarization pipeline
+- Activity classification
+- Timeline generation
 
 ## File Ownership
 
@@ -52,16 +55,14 @@ Next phase: **Phase 6 — Visual Context**
 |-----------|-------|---------|
 | `apps/extension/src/background/` | Extension | Service worker, sync manager, tab listeners |
 | `apps/extension/src/content/` | Extension | DOM event capture (click, scroll, visibility) |
-| `apps/extension/src/network/` | Extension | Network client (`client.ts`) for backend sync |
+| `apps/extension/src/visual/` | Extension | Throttled screenshot capture, image utils, scheduler |
+| `apps/extension/src/network/` | Extension | Network client (`client.ts`) for events & screenshot sync |
 | `apps/extension/src/messaging/` | Extension | Typed message protocol & StoredEvent model |
-| `apps/extension/src/storage/` | Extension | Temporary offline queue logger (`event-logger.ts`) |
-| `apps/extension/src/popup/` | Extension | UI controls, connection status, sync now, URL config |
-| `apps/extension/scripts/` | Extension | Build tooling |
-| `apps/server/src/database/` | Backend | Mongoose connection lifecycle manager |
-| `apps/server/src/models/` | Backend | Mongoose models for `Event` and `Session` |
-| `apps/server/src/services/` | Backend | `EventStore` interface, `MongoEventStore`, `InMemoryEventStore` |
-| `apps/server/src/` | Backend | Express API controllers, routes, middlewares |
-| `apps/server/Dockerfile` | Backend | Server Docker multi-stage build |
+| `apps/extension/src/storage/` | Extension | Event & screenshot offline storage queues |
+| `apps/extension/src/popup/` | Extension | UI controls, connection status, screenshot modal preview |
+| `apps/server/src/controllers/` | Backend | Ingestion controllers for events and screenshots |
+| `apps/server/src/models/` | Backend | Mongoose models for `Event`, `Session`, and `Screenshot` |
+| `apps/server/uploads/` | Backend | Local static storage for uploaded screenshot images |
 | `packages/shared-types/` | Shared | TypeScript interfaces |
 | `packages/shared-utils/` | Shared | Utility functions |
 | `docs/` | All | Documentation |
@@ -73,33 +74,25 @@ Defined in: [docs/api-spec.md](api-spec.md)
 - `GET /api/health` — Server health check
 - `POST /api/events` — Ingest single event
 - `POST /api/events/batch` — Ingest batch of events
-- `GET /api/events` — Query events with filters & pagination
-- `GET /api/events/:sessionId` — Retrieve events for a session
+- `POST /api/screenshots` — Upload visual context screenshot image & metadata
+- `GET /api/screenshots` — Query screenshots by sessionId
+- `GET /api/screenshots/latest` — Fetch latest recorded screenshot
 
 ## Database Contracts
 
 Defined in: [docs/database.md](database.md)
 
-- `events` collection (`EventModel`) — see database.md for schema & indexes
-- `sessions` collection (`SessionModel`) — see database.md for schema & indexes
-
-## Extension Network & Sync Configuration
-
-- **Default Backend URL:** `http://localhost:3000` (stored in `chrome.storage.sync` under key `vai_backend_url`)
-- **Offline Queue Key:** `vai_events` in `chrome.storage.local`
-- **Batch Endpoint:** `POST /api/events/batch`
-- **Retry Mechanism:** Exponential backoff (2s, 4s, 8s, 16s, 32s, max 60s)
+- `events` collection (`EventModel`)
+- `sessions` collection (`SessionModel`)
+- `screenshots` collection (`ScreenshotModel`)
 
 ## Known Assumptions
 
 1. Browser screen monitoring = browser context capture + optional screenshot (not continuous video)
-2. AI processing reads from the events collection, does not modify the core event pipeline
-3. User consent is obtained through Chrome extension permission prompts
-4. No user authentication in MVP — optional `userId` field for future use
-5. Background service worker acts as single synchronization pipeline for all captured browser events.
+2. Raw image files are saved locally under `apps/server/uploads/` directory with static route `/uploads/`
+3. Captures are throttled to a minimum 30-second interval per window focus state.
 
 ## Known Limitations
 
 1. Chrome-only — no Firefox/Safari support in MVP
 2. No real-time dashboard — polling or page refresh for updates
-3. Screenshot capture may be limited by Chrome's permission model

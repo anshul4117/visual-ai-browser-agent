@@ -4,6 +4,8 @@ import { loggerMiddleware } from './middleware/logger.middleware.js';
 import { errorMiddleware, notFoundHandler } from './middleware/error.middleware.js';
 import healthRouter from './routes/health.routes.js';
 import eventsRouter from './routes/events.routes.js';
+import screenshotsRouter from './routes/screenshots.routes.js';
+import { getUploadsDir } from './controllers/screenshots.controller.js';
 
 export function createApp(): Express {
   const app: Express = express();
@@ -18,9 +20,12 @@ export function createApp(): Express {
     })
   );
 
-  // Body parser
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+  // Body parser (50mb limit for base64 screenshot data URLs)
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+  // Serve static uploaded screenshot images
+  app.use('/uploads', express.static(getUploadsDir()));
 
   // Request logger
   app.use(loggerMiddleware);
@@ -28,6 +33,7 @@ export function createApp(): Express {
   // API Routes
   app.use('/api', healthRouter);
   app.use('/api', eventsRouter);
+  app.use('/api', screenshotsRouter);
 
   // Root fallback
   app.get('/', (_req, res) => {
