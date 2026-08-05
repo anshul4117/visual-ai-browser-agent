@@ -2,7 +2,7 @@
  * Background Service Worker
  *
  * Central hub of the Chrome extension. Handles:
- * - Message router (content script events & popup actions)
+ * - Message router (content script events, popup actions, AI analysis requests)
  * - Tab activation/update listeners
  * - Local offline event queueing & screenshot queueing
  * - Real-time synchronization pipeline to Express backend API (events & screenshots)
@@ -18,6 +18,7 @@ import type {
   ExtensionMessage,
   StatusResponse,
   GetLatestScreenshotResponse,
+  AnalyzeLatestResponse,
   SyncResponse,
   SetBackendUrlResponse,
   ClearEventsResponse,
@@ -51,11 +52,13 @@ import {
   sendBatchEvents,
   sendScreenshot,
   checkServerHealth,
+  fetchAnalysis,
+  triggerAnalysis,
 } from '../network/client.js';
 
 import { captureVisibleTab } from '../visual/capture.js';
 import { startScheduler } from '../visual/scheduler.js';
-import type { CreateScreenshotRequest } from '@visual-ai/shared-types';
+import type { CreateScreenshotRequest, ScreenshotAnalysisRecord } from '@visual-ai/shared-types';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -67,6 +70,7 @@ interface SyncState {
   lastCaptureTime: string | null;
   totalScreenshotsCaptured: number;
   retryAttempt: number;
+  latestAnalysis: ScreenshotAnalysisRecord | null;
 }
 
 // ─── Sync State Management ───────────────────────────────────────────────────
@@ -82,6 +86,7 @@ async function getSyncState(): Promise<SyncState> {
     lastCaptureTime: null,
     totalScreenshotsCaptured: 0,
     retryAttempt: 0,
+    latestAnalysis: null,
   };
 }
 
@@ -140,7 +145,7 @@ async function handleScreenshotCapture(screenshot: CreateScreenshotRequest): Pro
     totalScreenshotsCaptured: state.totalScreenshotsCaptured + 1,
   });
 
-  // Trigger background flush for screenshots
+  // Trigger background flush for screenshots & AI vision queueing
   flushQueue().catch((err) => console.debug('[Visual AI] Screenshot sync flush error:', err));
 }
 
@@ -202,6 +207,12 @@ async function flushQueue(): Promise<{ success: boolean; syncedCount: number; er
         const scrResult = await sendScreenshot(scr, backendUrl);
         if (scrResult.success) {
           syncedScreenshotIds.push(scr.screenshotId);
+
+          // Fetch or trigger AI Vision Analysis for uploaded screenshot
+          const analysisRes = await fetchAnalysis(scr.screenshotId, backendUrl);
+          if (analysisRes.success && analysisRes.data) {
+            await setSyncState({ latestAnalysis: analysisRes.data });
+          }
         }
       }
       if (syncedScreenshotIds.length > 0) {
@@ -258,6 +269,7 @@ async function isDuplicatePageLoad(url: string): Promise<boolean> {
 type MessageResponse =
   | StatusResponse
   | GetLatestScreenshotResponse
+  | AnalyzeLatestResponse
   | SyncResponse
   | SetBackendUrlResponse
   | ClearEventsResponse
@@ -370,6 +382,7 @@ chrome.runtime.onMessage.addListener(
               screenshotCount: syncState.totalScreenshotsCaptured,
               lastCaptureTime: syncState.lastCaptureTime,
               latestScreenshotDataUrl: latestScreenshot?.dataUrl || null,
+              latestAnalysis: syncState.latestAnalysis,
             };
             sendResponse(response);
             break;
@@ -381,6 +394,39 @@ chrome.runtime.onMessage.addListener(
               success: latest !== null,
               screenshot: latest,
             });
+            break;
+          }
+
+          case 'ANALYZE_LATEST': {
+            const backendUrl = await getBackendUrl();
+            const latestScreenshot = await getLatestQueuedScreenshot();
+
+            if (!latestScreenshot) {
+              sendResponse({
+                success: false,
+                analysis: null,
+                error: 'No captured screenshot available to analyze.',
+              });
+              break;
+            }
+
+            // Ensure screenshot is uploaded first
+            await sendScreenshot(latestScreenshot, backendUrl);
+            const analysisRes = await triggerAnalysis(latestScreenshot.screenshotId, backendUrl);
+
+            if (analysisRes.success && analysisRes.data) {
+              await setSyncState({ latestAnalysis: analysisRes.data });
+              sendResponse({
+                success: true,
+                analysis: analysisRes.data,
+              });
+            } else {
+              sendResponse({
+                success: false,
+                analysis: null,
+                error: analysisRes.error || 'Failed to analyze screenshot.',
+              });
+            }
             break;
           }
 
@@ -404,6 +450,7 @@ chrome.runtime.onMessage.addListener(
           case 'CLEAR_EVENTS': {
             await clearEvents();
             await clearScreenshots();
+            await setSyncState({ latestAnalysis: null });
             console.log('[Visual AI] Queues cleared');
             sendResponse({ success: true });
             break;

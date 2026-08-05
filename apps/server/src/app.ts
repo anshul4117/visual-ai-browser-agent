@@ -5,6 +5,7 @@ import { errorMiddleware, notFoundHandler } from './middleware/error.middleware.
 import healthRouter from './routes/health.routes.js';
 import eventsRouter from './routes/events.routes.js';
 import screenshotsRouter from './routes/screenshots.routes.js';
+import analysisRouter from './routes/analysis.routes.js';
 import { getUploadsDir } from './controllers/screenshots.controller.js';
 
 export function createApp(): Express {
@@ -34,6 +35,7 @@ export function createApp(): Express {
   app.use('/api', healthRouter);
   app.use('/api', eventsRouter);
   app.use('/api', screenshotsRouter);
+  app.use('/api', analysisRouter);
 
   // Root fallback
   app.get('/', (_req, res) => {

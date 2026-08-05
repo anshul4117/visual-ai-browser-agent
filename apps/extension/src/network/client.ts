@@ -1,4 +1,4 @@
-import type { ActivityEvent, CreateScreenshotRequest } from '@visual-ai/shared-types';
+import type { ActivityEvent, CreateScreenshotRequest, ScreenshotAnalysisRecord } from '@visual-ai/shared-types';
 
 export const DEFAULT_BACKEND_URL = 'http://localhost:3000';
 const BACKEND_URL_KEY = 'vai_backend_url';
@@ -53,7 +53,6 @@ async function fetchWithTimeout(
 
 /**
  * Check backend server connectivity and health.
- * Returns true if GET /api/health responds with 200 OK.
  */
 export async function checkServerHealth(backendUrl?: string): Promise<boolean> {
   try {
@@ -155,12 +154,62 @@ export async function sendScreenshot(
         },
         body: JSON.stringify(payload),
       },
-      15000 // 15s timeout for screenshot payload
+      15000
     );
 
     if (response.status === 201 || response.status === 200) {
       const resData = await response.json().catch(() => ({}));
       return { success: true, filePath: resData.filePath };
+    }
+
+    const errData = await response.json().catch(() => ({ error: 'HTTP error' }));
+    return { success: false, error: errData.error || `Server responded with ${response.status}` };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Network error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Fetch AI Vision Analysis for a specific screenshot.
+ */
+export async function fetchAnalysis(
+  screenshotId: string,
+  backendUrl?: string
+): Promise<{ success: boolean; data?: ScreenshotAnalysisRecord; error?: string }> {
+  try {
+    const baseUrl = backendUrl || (await getBackendUrl());
+    const endpoint = `${baseUrl}/api/analysis/${encodeURIComponent(screenshotId)}`;
+
+    const response = await fetchWithTimeout(endpoint, { method: 'GET' }, 10000);
+    if (response.ok) {
+      const resData = await response.json();
+      return { success: true, data: resData.data };
+    }
+
+    const errData = await response.json().catch(() => ({ error: 'HTTP error' }));
+    return { success: false, error: errData.error || `Server responded with ${response.status}` };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Network error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Trigger AI Vision Analysis for a specific screenshot.
+ */
+export async function triggerAnalysis(
+  screenshotId: string,
+  backendUrl?: string
+): Promise<{ success: boolean; data?: ScreenshotAnalysisRecord; error?: string }> {
+  try {
+    const baseUrl = backendUrl || (await getBackendUrl());
+    const endpoint = `${baseUrl}/api/analysis/trigger/${encodeURIComponent(screenshotId)}`;
+
+    const response = await fetchWithTimeout(endpoint, { method: 'POST' }, 15000);
+    if (response.ok) {
+      const resData = await response.json();
+      return { success: true, data: resData.data };
     }
 
     const errData = await response.json().catch(() => ({ error: 'HTTP error' }));

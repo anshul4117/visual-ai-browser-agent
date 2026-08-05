@@ -4,6 +4,7 @@ import path from 'path';
 import type { CreateScreenshotRequest } from '@visual-ai/shared-types';
 import { ScreenshotModel } from '../models/screenshot.model.js';
 import { isDatabaseConnected } from '../database/connection.js';
+import { analysisQueue } from '../ai/queue.service.js';
 
 export function getUploadsDir(): string {
   const cwd = process.cwd();
@@ -66,6 +67,9 @@ export async function createScreenshot(req: Request, res: Response, next: NextFu
         height: payload.height || 0,
       });
     }
+
+    // Enqueue screenshot for background AI vision analysis
+    analysisQueue.enqueue(payload.screenshotId);
 
     res.status(201).json({
       success: true,

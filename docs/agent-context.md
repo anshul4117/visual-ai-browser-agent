@@ -100,3 +100,8 @@ Defined in: [docs/database.md](database.md)
 1. Google Gemini Vision API (`gemini-2.5-flash`) is accessed via `GEMINI_API_KEY` env var.
 2. `MockVisionProvider` serves as an intelligent development fallback when `GEMINI_API_KEY` is not provided.
 3. Analyses run asynchronously in the background queue (`AnalysisQueueService`) without blocking HTTP uploads.
+
+## Known Limitations
+
+1. Chrome-only — no Firefox/Safari support in MVP
+2. OCR text extraction is deferred to future releases.
