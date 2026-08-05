@@ -83,25 +83,23 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Screenshot Mongoose model & MongoDB metadata persistence (`apps/server/src/models/screenshot.model.ts`)
 - [x] Popup visual capture statistics & **View Latest Screenshot** preview modal
 
-## Phase 7 — AI Processing
+## Phase 7 — AI Vision Analysis ✅
 
-- [ ] Event summarization
-- [ ] Activity classification
-- [ ] Timeline generation
+- [x] Gemini Vision provider interface & implementation (`apps/server/src/ai/vision-client.ts`)
+- [x] Prompt engineering for strict JSON output (`apps/server/src/ai/prompt.ts`)
+- [x] Asynchronous background AI queue service (`apps/server/src/ai/queue.service.ts`)
+- [x] Screenshot Analysis service (`apps/server/src/ai/analysis.service.ts`)
+- [x] Mongoose model for `ScreenshotAnalysis` (`apps/server/src/models/screenshot-analysis.model.ts`)
+- [x] Analysis API endpoints (`GET/POST /api/analysis`)
+- [x] Popup AI Insights card, category badge, productivity score bar & Analyze button
 
-## Phase 8 — Dashboard
+## Phase 8 — Production Polish ✅
 
-- [ ] Activity timeline
-- [ ] Session view
-- [ ] Event filtering
-- [ ] Screenshot preview
-- [ ] Search
-
-## Phase 9 — Production Polish
-
-- [ ] Error handling
-- [ ] Retry queue
-- [ ] Offline buffering
-- [ ] Logging
-- [ ] Rate limiting
-- [ ] Security review
+- [x] README overhaul with architecture diagrams, badges, and quickstart instructions
+- [x] Open-source governance files (`LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `.editorconfig`, `.gitattributes`)
+- [x] GitHub issue templates, PR template, and `CODEOWNERS`
+- [x] GitHub Actions CI pipeline (`.github/workflows/ci.yml`)
+- [x] Centralized environment configuration and validation (`apps/server/src/config/env.ts`)
+- [x] Request ID middleware (`x-request-id`) in logger middleware
+- [x] Enhanced health check endpoint (`GET /api/health`) with MongoDB, Queue, and AI status
+- [x] Recruiter Demo Guide (`docs/demo.md`) with 3-minute script & technical interview Q&A
