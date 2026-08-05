@@ -1,0 +1,30 @@
+{
+  "name": "visual-ai-browser-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome Extension (Manifest V3) that monitors browser activity and visual context, sends structured events to a backend API, and stores them in MongoDB.",
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "tsc --build",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "keywords": [
+    "chrome-extension",
+    "manifest-v3",
+    "browser-monitoring",
+    "visual-ai",
+    "activity-tracking"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

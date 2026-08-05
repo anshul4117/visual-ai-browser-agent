@@ -1,0 +1,19 @@
+{
+  "name": "@visual-ai/extension",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chrome Extension (Manifest V3) for browser activity monitoring and visual context capture",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Build system will be configured in Phase 1'",
+    "dev": "echo 'Dev server will be configured in Phase 1'",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@visual-ai/shared-types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

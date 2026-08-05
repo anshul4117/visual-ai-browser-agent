@@ -1,0 +1,15 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: visual-ai-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=visual-ai-browser-agent
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+    driver: local
