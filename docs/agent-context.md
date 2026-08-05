@@ -22,7 +22,11 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Tab activation & update tracking | ✅ Complete | 2 |
 | Content script DOM tracking (click/scroll/visibility) | ✅ Complete | 2 |
 | Event export & clear features in Popup | ✅ Complete | 2 |
-| Backend API | 🔲 Not started | 3 |
+| Express.js Backend Server (`apps/server`) | ✅ Complete | 3 |
+| Single & Batch Event Ingestion APIs | ✅ Complete | 3 |
+| In-Memory Append-Only Event Store | ✅ Complete | 3 |
+| Request Validation & Error Middlewares | ✅ Complete | 3 |
+| Multi-Stage Dockerfile for Server | ✅ Complete | 3 |
 | MongoDB integration | 🔲 Not started | 4 |
 | Visual context | 🔲 Not started | 5 |
 | AI processing | 🔲 Not started | 6 |
@@ -31,13 +35,13 @@ Persistent context for the AI coding agent. Updated after each phase.
 
 ## Pending Tasks
 
-Next phase: **Phase 3 — Backend API**
+Next phase: **Phase 4 — Database Persistence**
 
-- Express.js server setup in `apps/server`
-- `POST /api/events` endpoint for receiving events
-- `GET /api/events` endpoint for querying events
-- `GET /api/health` health check endpoint
-- Request validation and middleware setup
+- MongoDB connection setup with Mongoose in `apps/server`
+- Event and Session Mongoose schemas & models
+- Database indexes creation
+- Batch insertion persistence
+- Connection error handling and fallback
 
 ## File Ownership
 
@@ -49,10 +53,21 @@ Next phase: **Phase 3 — Backend API**
 | `apps/extension/src/storage/` | Extension | Persistent event logger (`event-logger.ts`) |
 | `apps/extension/src/popup/` | Extension | UI controls, statistics, export & clear |
 | `apps/extension/scripts/` | Extension | Build tooling |
-| `apps/server/` | Backend | Express.js API |
+| `apps/server/src/` | Backend | Express.js API, controllers, routes, middlewares, services |
+| `apps/server/Dockerfile` | Backend | Server Docker multi-stage build |
 | `packages/shared-types/` | Shared | TypeScript interfaces |
 | `packages/shared-utils/` | Shared | Utility functions |
 | `docs/` | All | Documentation |
+
+## API Contracts
+
+Defined in: [docs/api-spec.md](api-spec.md)
+
+- `GET /api/health` — Server health check
+- `POST /api/events` — Ingest single event
+- `POST /api/events/batch` — Ingest batch of events
+- `GET /api/events` — Query events with filters & pagination
+- `GET /api/events/:sessionId` — Retrieve events for a session
 
 ## Internal Messaging Contracts
 
@@ -75,13 +90,11 @@ Defined in: [docs/database.md](database.md)
 - `events` collection — see database.md for schema
 - `sessions` collection — see database.md for schema
 
-## Build System
+## Server Build System
 
-- **Tool:** esbuild via `scripts/build.ts`
-- **Output:** `apps/extension/dist/` (load as unpacked extension)
-- **Format:** IIFE for all bundles (background, content, popup)
-- **Source maps:** Enabled
-- **Commands:** `npm run build`, `npm run dev`, `npm run clean`
+- **Build Tool:** TypeScript `tsc` outputting to `apps/server/dist/`
+- **Dev Runner:** `tsx watch src/index.ts`
+- **Docker:** `apps/server/Dockerfile` (multi-stage Alpine Node 20)
 
 ## Known Assumptions
 
@@ -89,14 +102,10 @@ Defined in: [docs/database.md](database.md)
 2. AI processing reads from the events collection, does not modify the core event pipeline
 3. User consent is obtained through Chrome extension permission prompts
 4. No user authentication in MVP — optional `userId` field for future use
-5. esbuild chosen as bundler for simplicity and speed
-6. IIFE format used for all extension scripts
-7. Local timeline stored in `chrome.storage.local` under key `vai_events`, capped at 10,000 events
+5. In-memory event store used for Phase 3 prior to MongoDB integration in Phase 4
 
 ## Known Limitations
 
 1. Chrome-only — no Firefox/Safari support in MVP
 2. No real-time dashboard — polling or page refresh for updates
-3. No cloud deployment configuration
-4. Screenshot capture may be limited by Chrome's permission model
-5. No hot-reload for extension development (manual reload after `npm run build`)
+3. In-memory event storage in Phase 3 resets on server restart until Phase 4 (MongoDB persistence)
