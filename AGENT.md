@@ -16,7 +16,7 @@ Original assignment:
 
 ## Current Phase
 
-Phase 3 — Backend API (Complete)
+Phase 4 — Database Persistence (Complete)
 
 ## Architecture Constraints
 
