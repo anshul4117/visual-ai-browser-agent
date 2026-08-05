@@ -93,19 +93,13 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Analysis API endpoints (`GET/POST /api/analysis`)
 - [x] Popup AI Insights card, category badge, productivity score bar & Analyze button
 
-## Phase 8 — Dashboard
+## Phase 8 — Production Polish ✅
 
-- [ ] Activity timeline
-- [ ] Session view
-- [ ] Event filtering
-- [ ] Screenshot preview
-- [ ] Search
-
-## Phase 9 — Production Polish
-
-- [ ] Error handling
-- [ ] Retry queue
-- [ ] Offline buffering
-- [ ] Logging
-- [ ] Rate limiting
-- [ ] Security review
+- [x] README overhaul with architecture diagrams, badges, and quickstart instructions
+- [x] Open-source governance files (`LICENSE`, `CONTRIBUTING.md`, `SECURITY.md`, `.editorconfig`, `.gitattributes`)
+- [x] GitHub issue templates, PR template, and `CODEOWNERS`
+- [x] GitHub Actions CI pipeline (`.github/workflows/ci.yml`)
+- [x] Centralized environment configuration and validation (`apps/server/src/config/env.ts`)
+- [x] Request ID middleware (`x-request-id`) in logger middleware
+- [x] Enhanced health check endpoint (`GET /api/health`) with MongoDB, Queue, and AI status
+- [x] Recruiter Demo Guide (`docs/demo.md`) with 3-minute script & technical interview Q&A

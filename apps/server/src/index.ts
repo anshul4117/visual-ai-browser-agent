@@ -1,36 +1,30 @@
-import dotenv from 'dotenv';
 import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './database/connection.js';
-
-// Load environment variables from .env if present
-dotenv.config();
-
-const PORT = parseInt(process.env.PORT || '3000', 10);
-const NODE_ENV = process.env.NODE_ENV || 'development';
+import { config } from './config/env.js';
 
 async function startServer(): Promise<void> {
-  // Connect to MongoDB (fallback to in-memory store if connection fails or unconfigured)
   try {
-    await connectDatabase();
+    await connectDatabase(config.mongoUri);
   } catch (error) {
-    console.warn('[Server] Starting server with fallback InMemoryEventStore (MongoDB offline)');
+    console.warn('[Server] Starting server with fallback storage (MongoDB offline/unreachable)');
   }
 
   const app = createApp();
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(config.port, () => {
     console.log(`==================================================`);
-    console.log(`🚀 Visual AI Server running on port ${PORT}`);
-    console.log(`🌍 Environment: ${NODE_ENV}`);
-    console.log(`📡 Base URL: http://localhost:${PORT}/api`);
+    console.log(`🚀 Visual AI Browser Agent API Server v${config.version}`);
+    console.log(`🌍 Environment: ${config.nodeEnv}`);
+    console.log(`📡 Base URL:    http://localhost:${config.port}/api`);
+    console.log(`🤖 AI Provider: ${config.geminiApiKey ? 'Gemini 2.5 Flash API' : 'Mock Vision Provider'}`);
     console.log(`==================================================`);
   });
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    console.log(`\nReceived ${signal}. Shutting down server gracefully...`);
+    console.log(`\n[Server] Received ${signal}. Shutting down gracefully...`);
     server.close(async () => {
-      console.log('HTTP server closed.');
+      console.log('[Server] HTTP server closed.');
       await disconnectDatabase();
       process.exit(0);
     });

@@ -44,16 +44,11 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Asynchronous Processing Queue Service (`queue.service.ts`) | ✅ Complete | 7 |
 | Analysis API Endpoints (`GET/POST /api/analysis`) | ✅ Complete | 7 |
 | Popup AI Insights Card, Category Badge & Score Bar | ✅ Complete | 7 |
-| Dashboard | 🔲 Not started | 8 |
-
-## Pending Tasks
-
-Next phase: **Phase 8 — Dashboard**
-
-- Activity timeline UI
-- Session view & filtering
-- Screenshot preview modal
-- Search & analytics
+| Production README overhaul & Recruiter Demo Guide | ✅ Complete | 8 |
+| GitHub Actions CI Pipeline (`.github/workflows/ci.yml`) | ✅ Complete | 8 |
+| Governance files (LICENSE, CONTRIBUTING, SECURITY, etc.) | ✅ Complete | 8 |
+| Request ID Tracking Middleware & Centralized Env Config | ✅ Complete | 8 |
+| Service Metrics Health Check Endpoint (`GET /api/health`) | ✅ Complete | 8 |
 
 ## File Ownership
 
@@ -67,18 +62,21 @@ Next phase: **Phase 8 — Dashboard**
 | `apps/extension/src/storage/` | Extension | Event & screenshot offline storage queues |
 | `apps/extension/src/popup/` | Extension | UI controls, AI Insights card, category badge, score bar |
 | `apps/server/src/ai/` | Backend | Vision client, prompt builder, analysis & queue services |
+| `apps/server/src/config/` | Backend | Centralized env configuration & validation |
 | `apps/server/src/controllers/` | Backend | Ingestion controllers for events, screenshots, and AI analysis |
+| `apps/server/src/middleware/` | Backend | Request ID logger & global error handlers |
 | `apps/server/src/models/` | Backend | Mongoose models for `Event`, `Session`, `Screenshot`, `ScreenshotAnalysis` |
 | `apps/server/uploads/` | Backend | Local static storage for uploaded screenshot images |
+| `.github/` | CI/CD | GitHub Actions workflow, PR/Issue templates, CODEOWNERS |
 | `packages/shared-types/` | Shared | TypeScript interfaces |
 | `packages/shared-utils/` | Shared | Utility functions |
-| `docs/` | All | Documentation |
+| `docs/` | All | Documentation & Recruiter Demo Guide |
 
 ## API Contracts
 
 Defined in: [docs/api-spec.md](api-spec.md)
 
-- `GET /api/health` — Server health check
+- `GET /api/health` — Enhanced server health check with service metrics
 - `POST /api/events` — Ingest single event
 - `POST /api/events/batch` — Ingest batch of events
 - `POST /api/screenshots` — Upload visual context screenshot image & metadata
