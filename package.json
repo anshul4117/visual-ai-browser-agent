@@ -13,7 +13,7 @@
     "dev": "npm run dev --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "tsc --build",
-    "clean": "npm run clean --workspaces --if-present"
+    "clean": "npm run clean --workspaces --if-present && rm -rf *.tsbuildinfo"
   },
   "keywords": [
     "chrome-extension",

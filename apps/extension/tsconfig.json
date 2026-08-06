@@ -3,10 +3,15 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["chrome"],
     "noEmit": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules", "scripts"]
+  "exclude": ["dist", "node_modules", "scripts"],
+  "references": [
+    { "path": "../../packages/shared-types" },
+    { "path": "../../packages/shared-utils" }
+  ]
 }
