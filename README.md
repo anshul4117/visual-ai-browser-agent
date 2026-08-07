@@ -1,21 +1,42 @@
 # Visual AI Browser Agent
 
-[![CI Pipeline](https://github.com/anshul4117/visual-ai-browser-agent/actions/workflows/ci.yml/badge.svg)](https.github.com/anshul4117/visual-ai-browser-agent/actions)
+[![CI Pipeline](https://github.com/anshul4117/visual-ai-browser-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/anshul4117/visual-ai-browser-agent/actions)
+[![Live Web Dashboard](https://img.shields.io/badge/Live_Dashboard-Vercel_Deployed-black?logo=vercel)](https://visual-ai-dashboard.vercel.app)
+[![Live Backend API](https://img.shields.io/badge/Live_API-Render_Hosted-blue?logo=render)](https://visual-ai-api.onrender.com/api/health)
 [![Manifest V3](https://img.shields.io/badge/Chrome_Extension-Manifest_V3-blue.svg)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-Strict_Mode-blue.svg)](https://www.typescriptlang.org/)
 [![Node.js 20](https://img.shields.io/badge/Node.js-v20_LTS-green.svg)](https://nodejs.org/)
-[![Express.js](https://img.shields.io/badge/Express.js-4.x-lightgrey.svg)](https://expressjs.com/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.0_Community-green.svg)](https://www.mongodb.com/)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas_Cloud-green?logo=mongodb)](https://www.mongodb.com/atlas)
 [![Gemini Vision](https://img.shields.io/badge/AI_Vision-Google_Gemini_2.5_Flash-purple.svg)](https://ai.google.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> An enterprise-grade Manifest V3 Chrome Extension and Express.js + MongoDB backend that monitors browser activity, captures visual tab context, and uses Google Gemini Vision API to generate structured productivity insights.
+> An enterprise-grade Manifest V3 Chrome Extension, Express.js + MongoDB backend, and React Web Dashboard that captures real-time browser activity, records visual tab context, and uses Google Gemini Vision API to generate structured productivity insights.
 
 ---
 
-## 📌 Executive Summary
+## 🌐 Live Public Demo URLs
 
-The **Visual AI Browser Agent** is a full-stack, multimodal browser monitoring and activity intelligence system. It tracks user interactions (navigation, clicks, scroll depth, tab switching, document visibility), periodically captures browser visual context (`chrome.tabs.captureVisibleTab`), queues telemetry offline with exponential backoff retries, and analyzes screenshots via **Google Gemini 2.5 Flash API** to classify productivity and generate semantic summaries.
+| Component | Platform | Live URL | Description |
+|-----------|----------|----------|-------------|
+| **Web Dashboard** | Vercel | [https://visual-ai-dashboard.vercel.app](https://visual-ai-dashboard.vercel.app) | Public analytics & real-time telemetry dashboard |
+| **Backend API** | Render | [https://visual-ai-api.onrender.com/api/health](https://visual-ai-api.onrender.com/api/health) | Public REST API & Gemini Vision analysis service |
+| **Database** | MongoDB Atlas | *Managed Cloud Cluster* | Cloud persistence with automatic connection pooling |
+
+---
+
+## ⚡ 60-Second Recruiter Quickstart
+
+1. **Visit Live Dashboard**: Open [https://visual-ai-dashboard.vercel.app](https://visual-ai-dashboard.vercel.app) in any web browser to explore real-time session timelines, telemetry charts, and Gemini AI evaluations.
+2. **Test Public API Health**: Run `curl https://visual-ai-api.onrender.com/api/health` to inspect server health metrics, database connection status, and AI provider status.
+3. **Load Chrome Extension (Local)**:
+   ```bash
+   git clone https://github.com/anshul4117/visual-ai-browser-agent.git
+   cd visual-ai-browser-agent
+   npm install && npm run build --workspace=@visual-ai/extension
+   ```
+   Open `chrome://extensions` $\rightarrow$ enable **Developer mode** $\rightarrow$ click **Load unpacked** $\rightarrow$ select `apps/extension/dist`.
+4. **Point Extension to Live Backend**:
+   In the Extension Popup, set the Backend URL to `https://visual-ai-api.onrender.com` to stream your live browsing telemetry to the cloud dashboard.
 
 ---
 
@@ -32,11 +53,11 @@ The **Visual AI Browser Agent** is a full-stack, multimodal browser monitoring a
 │  └──────────────────┘           │ • Throttled Visual Capture        │  │
 │  ┌──────────────────┐           │ • Event & Screenshot Queues       │  │
 │  │ Extension Popup  │──sendMessage▶│ • Real-Time Sync Pipeline         │  │
-│  │ • Status Badge   │           └─────────────┬─────────────────────┘  │
-│  │ • AI Insights    │                         │                        │
-│  │ • Score Bar      │                         ▼                        │
-│  │ • Analyze Button │           ┌───────────────────────────────────┐  │
-│  └──────────────────┘           │ Local Offline Storage Queue       │  │
+│  └──────────────────┘           └─────────────┬─────────────────────┘  │
+│                                               │                        │
+│                                               ▼                        │
+│                                 ┌───────────────────────────────────┐  │
+│                                 │ Local Offline Storage Queue       │  │
 │                                 │ • vai_events (storage.local)      │  │
 │                                 │ • vai_screenshots (storage.local) │  │
 │                                 └─────────────┬─────────────────────┘  │
@@ -48,45 +69,36 @@ The **Visual AI Browser Agent** is a full-stack, multimodal browser monitoring a
                                                 ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                      Express.js Backend API & AI Engine                │
+│                         (Hosted on Render / Railway)                   │
 │                                                                        │
 │  ┌─────────────────┐    ┌────────────────────┐    ┌─────────────────┐  │
 │  │  Middleware     │───▶│  Routes            │───▶│  Controllers    │  │
-│  │  • CORS         │    │  • /api/health     │    │  • Health       │  │
-│  │  • Request ID   │    │  • /api/events     │    │  • Events       │  │
-│  │  • JSON 50mb    │    │  • /api/screenshots│    │  • Screenshots  │  │
-│  │  • Logger       │    │  • /api/analysis   │    │  • Analysis     │  │
+│  │  • Helmet (CSP) │    │  • /api/health     │    │  • Health       │  │
+│  │  • Compression  │    │  • /api/events     │    │  • Events       │  │
+│  │  • Rate Limiter │    │  • /api/screenshots│    │  • Screenshots  │  │
+│  │  • Logger UUID  │    │  • /api/analysis   │    │  • Analysis     │  │
+│  │  • Trust Proxy  │    │  • /api/dashboard  │    │  • Dashboard    │  │
 │  └─────────────────┘    └────────────────────┘    └────────┬────────┘  │
-│                                                            │           │
-│                                                            ▼           │
-│                                                   ┌─────────────────┐  │
-│                                                   │ Async AI Queue  │  │
-│                                                   │ (queue.service) │  │
-│                                                   └────────┬────────┘  │
-└────────────────────────────────────────────────────────────┼───────────┘
-                                                             │
-                                                             ▼
-                                                    ┌─────────────────┐
-                                                    │ Vision Provider │
-                                                    │ (Google Gemini) │
-                                                    └────────┬────────┘
-                                                             │
-                                          ┌──────────────────┴──────────────────┐
-                                          ▼                                     ▼
-                              ┌───────────────────────┐             ┌───────────────────────┐
-                              │ GeminiVisionProvider  │             │ MockVisionProvider    │
-                              │ (Gemini 2.5 Flash API)│             │ (Development Fallback)│
-                              └───────────────────────┘             └───────────────────────┘
-                                          │                                     │
-                                          └──────────────────┬──────────────────┘
-                                                             │
-                                                             ▼
-                                                ┌────────────────────────┐
-                                                │ MongoDB 7 (Mongoose)   │
-                                                │ • events               │
-                                                │ • sessions             │
-                                                │ • screenshots          │
-                                                │ • screenshot_analyses  │
-                                                └────────────────────────┘
+└───────────────────────────────────────────────┬────────────┼───────────┘
+                                                │            │
+                                                │            ▼
+                                                │   ┌─────────────────┐
+                                                │   │ Async AI Queue  │──▶ Google Gemini Vision
+                                                │   │ (queue.service) │    (gemini-2.5-flash)
+                                                │   └─────────────────┘
+                                                │
+                                                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                         Web Dashboard (React + Vite)                   │
+│                            (Hosted on Vercel)                          │
+│                                                                        │
+│  ┌──────────────┐   ┌──────────────┐   ┌──────────────┐   ┌──────────┐ │
+│  │   Overview   │   │   Sessions   │   │  Events Log  │   │ Visuals  │ │
+│  └──────────────┘   └──────────────┘   └──────────────┘   └──────────┘ │
+│  ┌──────────────┐   ┌──────────────┐                                   │
+│  │ AI Insights  │   │  Analytics   │                                   │
+│  └──────────────┘   └──────────────┘                                   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -98,9 +110,9 @@ The **Visual AI Browser Agent** is a full-stack, multimodal browser monitoring a
 - **Throttled Visual Context Capture**: Captures visible browser tab area (`chrome.tabs.captureVisibleTab`) with active window focus checks and 30-second interval throttling.
 - **Offline-First Synchronization**: Queues events locally in `chrome.storage.local` with automatic batching and exponential backoff retry algorithms ($2\text{s}, 4\text{s}, 8\text{s}, 16\text{s}, 32\text{s}$, max $60\text{s}$).
 - **Multimodal AI Vision Analysis**: Integrates **Google Gemini 2.5 Flash API** to generate structured semantic summaries, activity classification categories, and productivity scores ($0 - 100$).
-- **Decoupled Asynchronous Processing**: Screenshot upload returns immediately while an in-memory background worker processes AI analysis asynchronously.
-- **Polymorphic Database Fallback**: Persists to MongoDB 7 via Mongoose, with graceful fallback to in-memory event stores when running without database containers.
-- **Interactive Extension Popup**: Features real-time status badges, offline queue item counters, backend URL configuration, JSON log export, preview image modal, and AI Vision Insights score bar.
+- **Recruiter Web Dashboard**: Modern dark mode React + Vite dashboard featuring session duration histograms, 24h event volume area charts, category share distributions, and interactive screenshot Lightbox modal.
+- **Production Hardened Backend**: Equipped with Helmet security headers, Gzip compression, rate limiting (1000 req/15min), UUID request tracing (`x-request-id`), and trust proxy support.
+- **Polymorphic Database Fallback**: Persists to MongoDB Atlas via Mongoose, with graceful fallback to in-memory event stores when running without cloud database credentials.
 
 ---
 
@@ -109,61 +121,17 @@ The **Visual AI Browser Agent** is a full-stack, multimodal browser monitoring a
 | Layer | Technology | Description |
 |-------|------------|-------------|
 | **Extension** | Chrome Manifest V3, TypeScript, esbuild | Ephemeral service worker, content scripts, popup UI |
-| **Backend** | Node.js v20 LTS, Express.js 4.x, TypeScript | RESTful API server with strict validation & request ID tracing |
-| **Database** | MongoDB 7.0, Mongoose 8.x | Document database for sessions, events, screenshots, and AI analyses |
+| **Backend** | Node.js v20 LTS, Express.js 4.x, TypeScript | RESTful API with Helmet, Rate Limiter, Compression, and Request ID tracing |
+| **Web Dashboard** | React 18, Vite, Tailwind CSS, TanStack Query, Recharts | Recruiter analytics interface and visual context explorer |
+| **Database** | MongoDB Atlas / MongoDB 7.0, Mongoose 8.x | Cloud document database for sessions, events, screenshots, and AI analyses |
 | **AI Engine** | Google Gemini 2.5 Flash API (`@google/genai`) | Multimodal vision model for visual activity classification |
-| **Tooling** | Docker Compose, npm Workspaces, GitHub Actions | Containerized database and automated CI/CD pipeline |
+| **Cloud Hosting** | Vercel & Render | Automated CI/CD deployment with SPA client rewrites |
 
 ---
 
-## 📂 Repository Structure
+## 🚀 Local Development Setup
 
-```
-visual-ai-browser-agent/
-├── apps/
-│   ├── extension/                    # Chrome Extension (Manifest V3)
-│   │   ├── src/
-│   │   │   ├── background/           # Service worker & sync pipeline
-│   │   │   ├── content/              # Content scripts DOM event tracking
-│   │   │   ├── messaging/            # Typed message contracts
-│   │   │   ├── network/              # Network client with fetch timeout
-│   │   │   ├── storage/              # Offline storage queue loggers
-│   │   │   ├── visual/               # Throttled visual capture & scheduler
-│   │   │   └── popup/                # Popup HTML/CSS/TS interface
-│   │   └── manifest.json
-│   └── server/                       # Node.js + Express API Backend
-│       ├── uploads/                  # Local storage for screenshot image files
-│       └── src/
-│           ├── ai/                   # Vision client, prompt engineering, queue service
-│           ├── config/               # Centralized env configuration
-│           ├── controllers/          # Event, screenshot, and analysis controllers
-│           ├── database/             # Mongoose connection manager
-│           ├── middleware/           # Request ID logger & error handling
-│           ├── models/               # Mongoose schemas (Event, Session, Screenshot, Analysis)
-│           └── routes/               # API Express routes
-├── packages/
-│   ├── shared-types/                 # Shared TypeScript contracts across extension and server
-│   └── shared-utils/                 # Shared utility functions
-├── docs/                             # Complete project documentation & recruiter demo guide
-├── .github/
-│   └── workflows/ci.yml              # GitHub Actions CI workflow
-├── docker-compose.yml                # MongoDB Docker setup
-├── package.json                      # Monorepo root workspace configuration
-├── README.md
-└── AGENT.md                          # AI Agent execution context
-```
-
----
-
-## 🚀 Quick Start & Local Setup
-
-### 1. Prerequisites
-
-- **Node.js**: `v20.x` or higher
-- **npm**: `v10.x` or higher
-- **Docker**: Docker Desktop (optional, for local MongoDB container)
-
-### 2. Installation & Build
+### 1. Installation & Build
 
 ```bash
 # Clone the repository
@@ -176,13 +144,11 @@ npm install
 # Build shared types package
 npm run build --workspace=packages/shared-types
 
-# Build server and extension packages
+# Build all monorepo packages (extension, server, dashboard)
 npm run build --workspaces
 ```
 
-### 3. Environment Variables Setup
-
-Copy the example environment file:
+### 2. Environment Configuration
 
 ```bash
 cp .env.example .env
@@ -194,93 +160,29 @@ cp .env.example .env
 PORT=3000
 NODE_ENV=development
 CORS_ORIGIN=*
+DASHBOARD_URL=http://localhost:5173
 MONGODB_URI=mongodb://localhost:27017/visual-ai-browser-agent
 GEMINI_API_KEY=your_google_gemini_api_key_here
 ```
 
-> *Note: If `GEMINI_API_KEY` is omitted, the backend server automatically runs `MockVisionProvider` so you can test all AI features offline.*
-
----
-
-## 🐳 Running with Docker
-
-Start the containerized MongoDB database:
+### 3. Start Services
 
 ```bash
-# Start MongoDB service
+# Terminal 1: Start MongoDB (Docker)
 docker-compose up -d
 
-# Verify container is running
-docker-compose ps
+# Terminal 2: Start Express API Server
+npm run dev --workspace=@visual-ai/server
+
+# Terminal 3: Start Web Dashboard
+npm run dev --workspace=@visual-ai/dashboard
 ```
-
-Start the API Server:
-
-```bash
-npm run dev --workspace=apps/server
-```
-
----
-
-## 🧩 Loading the Chrome Extension
-
-1. Open Google Chrome and navigate to `chrome://extensions`.
-2. Enable **Developer mode** using the toggle switch in the top-right corner.
-3. Click **Load unpacked**.
-4. Select the directory: `<repository-root>/apps/extension/dist`.
-5. The **Visual AI Browser Agent** extension icon will appear in your extensions bar.
-
----
-
-## 🤖 AI Vision Pipeline
-
-```
-1. Active Browser Tab ──▶ captureVisibleTab() ──▶ Base64 PNG Data URL
-                                                      │
-2. Local Offline Queue (chrome.storage.local) ───────┼──▶ POST /api/screenshots
-                                                      │   (Returns 201 Created)
-                                                      ▼
-3. Background Worker ──▶ Reads PNG File ──▶ Google Gemini 2.5 Flash API
-                                                      │
-4. Parsed JSON Metrics ◀──────────────────────────────┘
-   { summary, category, productivityScore, entities, confidence }
-                                                      │
-                                                      ▼
-5. Saved in MongoDB screenshot_analyses ──▶ Extension Popup UI
-```
-
----
-
-## 📡 API Overview
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/health` | Service health, MongoDB status, queue metrics, and version |
-| `POST` | `/api/events` | Ingest a single browser activity event |
-| `POST` | `/api/events/batch` | Ingest a batch of browser activity events |
-| `GET` | `/api/events` | Query recorded activity events with filtering & pagination |
-| `GET` | `/api/events/:sessionId` | Retrieve activity timeline for a given session |
-| `POST` | `/api/screenshots` | Upload screenshot image binary and metadata |
-| `GET` | `/api/screenshots` | Query screenshot records |
-| `GET` | `/api/screenshots/latest` | Retrieve most recent captured screenshot |
-| `GET` | `/api/analysis/:screenshotId` | Fetch AI Vision analysis for a screenshot |
-| `GET` | `/api/analysis/session/:sessionId` | Fetch all AI Vision analyses for a session |
-| `POST` | `/api/analysis/trigger/:screenshotId` | Trigger/re-run AI Vision analysis |
 
 ---
 
 ## 📖 Recruiter & Interview Demo Guide
 
 A complete 3-minute interview demonstration script, architecture walkthrough, and technical Q&A are documented in [docs/demo.md](docs/demo.md).
-
----
-
-## 🔮 Future Improvements
-
-- **Web Dashboard**: React/Next.js real-time analytics dashboard with interactive session timelines.
-- **OCR Text Extraction**: On-device OCR text recognition using Tesseract.js.
-- **Multi-Model Routing**: Support for Claude 3.5 Sonnet and OpenAI GPT-4o vision providers.
-- **Privacy Masking**: Automatic client-side canvas blurring for sensitive input fields and password inputs before screenshot capture.
 
 ---
 

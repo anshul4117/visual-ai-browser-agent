@@ -52,13 +52,15 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Web Dashboard Workspace (`apps/dashboard`) | ✅ Complete | 9 |
 | Backend Read-Only Dashboard Endpoints (`/api/dashboard/*`) | ✅ Complete | 9 |
 | React + Vite + Tailwind CSS + Recharts Visualization UI | ✅ Complete | 9 |
+| Cloud Deployment Infrastructure (Vercel & Render) | ✅ Complete | 10 |
+| Production Security Headers, Gzip & Rate Limiting | ✅ Complete | 10 |
 
 ## File Ownership
 
 | Directory | Owner | Purpose |
 |-----------|-------|---------|
 | `apps/extension/` | Extension | Service worker, sync manager, tab listeners, DOM event capture |
-| `apps/server/` | Backend | Ingestion controllers, database connection, dashboard endpoints, AI engine |
+| `apps/server/` | Backend | Ingestion controllers, database connection, dashboard endpoints, AI engine, security middlewares |
 | `apps/dashboard/` | Frontend | Web Dashboard pages (Overview, Sessions, Events, Screenshots, AI Insights, Analytics) |
 | `.github/` | CI/CD | GitHub Actions workflow, PR/Issue templates, CODEOWNERS |
 | `packages/shared-types/` | Shared | TypeScript interfaces & Dashboard API contracts |

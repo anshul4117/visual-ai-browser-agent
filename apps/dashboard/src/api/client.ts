@@ -8,11 +8,11 @@ import type {
   HealthCheckResponse,
 } from '@visual-ai/shared-types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE,
-  timeout: 10000,
+  timeout: 15000,
 });
 
 export async function fetchHealth(): Promise<HealthCheckResponse> {

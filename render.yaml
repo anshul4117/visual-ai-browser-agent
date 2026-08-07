@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: visual-ai-server
+    env: node
+    region: oregon
+    buildCommand: npm install && npm run build --workspace=packages/shared-types && npm run build --workspace=apps/server
+    startCommand: npm run start --workspace=apps/server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: CORS_ORIGIN
+        value: https://visual-ai-dashboard.vercel.app
+      - key: DASHBOARD_URL
+        value: https://visual-ai-dashboard.vercel.app
+      - key: MONGODB_URI
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+    healthCheckPath: /api/health
