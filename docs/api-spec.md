@@ -10,7 +10,7 @@ http://localhost:3000/api
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/health` | Server health & uptime check |
+| `GET` | `/api/health` | Server health, MongoDB status, queue metrics, & version |
 | `POST` | `/api/events` | Record a single activity event |
 | `POST` | `/api/events/batch` | Record a batch of activity events |
 | `GET` | `/api/events` | Query events with filters and pagination |
@@ -21,85 +21,17 @@ http://localhost:3000/api
 | `GET` | `/api/analysis/:screenshotId` | Get AI vision analysis for a screenshot |
 | `GET` | `/api/analysis/session/:sessionId` | Get AI vision analyses for a session |
 | `POST` | `/api/analysis/trigger/:screenshotId` | Explicitly trigger AI analysis for a screenshot |
+| `GET` | `/api/dashboard/overview` | Dashboard summary metrics, hourly chart data, & categories |
+| `GET` | `/api/dashboard/sessions` | List of browsing sessions with duration & event count |
+| `GET` | `/api/dashboard/events` | Paginated event telemetry table with filters |
+| `GET` | `/api/dashboard/screenshots` | Paginated screenshot gallery with populated AI vision analysis |
+| `GET` | `/api/dashboard/analytics` | Telemetry analytics (productivity trend, top domains, session duration) |
 
 ---
 
-### GET /api/health
+### GET /api/dashboard/overview
 
-Health check endpoint.
-
-**Request:** None
-
-**Success Response (200 OK):**
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2026-08-05T21:30:00.000Z",
-  "uptime": 3600
-}
-```
-
----
-
-### POST /api/events
-
-Create a new single activity event.
-
-**Request Body:**
-
-```json
-{
-  "sessionId": "vai_m1abc123_x7y8z9",
-  "url": "https://example.com/page",
-  "title": "Example Page",
-  "eventType": "click",
-  "timestamp": "2026-08-05T21:30:00.000Z",
-  "metadata": {
-    "selector": "#submit-btn",
-    "tagName": "BUTTON",
-    "innerText": "Submit"
-  }
-}
-```
-
----
-
-### POST /api/screenshots
-
-Upload a visual context screenshot image.
-
-**Request Body:**
-
-```json
-{
-  "screenshotId": "scr_m1abc123_z9y8x7",
-  "sessionId": "vai_m1abc123_x7y8z9",
-  "eventId": "evt_123",
-  "url": "https://example.com/page",
-  "title": "Example Page",
-  "capturedAt": "2026-08-05T21:30:00.000Z",
-  "dataUrl": "data:image/png;base64,...",
-  "width": 1280,
-  "height": 720
-}
-```
-
-**Success Response (201 Created):**
-
-```json
-{
-  "success": true,
-  "screenshotId": "scr_m1abc123_z9y8x7",
-  "filePath": "/uploads/scr_m1abc123_z9y8x7.png"
-}
-```
-
----
-
-### GET /api/analysis/:screenshotId
-
-Retrieve AI Vision analysis for a specific screenshot.
+Returns aggregated high-level statistics for the Web Dashboard overview page.
 
 **Success Response (200 OK):**
 
@@ -107,43 +39,53 @@ Retrieve AI Vision analysis for a specific screenshot.
 {
   "success": true,
   "data": {
-    "screenshotId": "scr_m1abc123_z9y8x7",
-    "sessionId": "vai_m1abc123_x7y8z9",
-    "summary": "User is actively developing code on GitHub.",
-    "category": "Development",
-    "productivityScore": 95,
-    "entities": ["GitHub", "TypeScript", "Repository"],
-    "confidence": 0.95,
-    "analyzedAt": "2026-08-05T21:30:05.000Z",
-    "model": "gemini-2.5-flash"
+    "totalSessions": 12,
+    "totalEvents": 482,
+    "totalScreenshots": 34,
+    "totalAnalyses": 34,
+    "activeSyncStatus": true,
+    "databaseStatus": "connected",
+    "aiProviderStatus": "gemini-2.5-flash",
+    "averageProductivityScore": 88,
+    "eventsPerHour": [
+      { "hour": "10:00", "count": 45 },
+      { "hour": "11:00", "count": 82 }
+    ],
+    "topCategories": [
+      { "category": "Development", "count": 22, "percentage": 65 },
+      { "category": "Documentation", "count": 8, "percentage": 25 }
+    ]
   }
 }
 ```
 
 ---
 
-### GET /api/analysis/session/:sessionId
+### GET /api/dashboard/analytics
 
-Retrieve all AI Vision analyses for a session.
+Returns analytics visualization datasets for Recharts graphs.
 
 **Success Response (200 OK):**
 
 ```json
 {
   "success": true,
-  "data": [
-    {
-      "screenshotId": "scr_m1abc123_z9y8x7",
-      "sessionId": "vai_m1abc123_x7y8z9",
-      "summary": "User is actively developing code on GitHub.",
-      "category": "Development",
-      "productivityScore": 95,
-      "entities": ["GitHub", "TypeScript"],
-      "confidence": 0.95,
-      "analyzedAt": "2026-08-05T21:30:05.000Z",
-      "model": "gemini-2.5-flash"
-    }
-  ],
-  "total": 1
+  "data": {
+    "productivityTrend": [
+      { "timestamp": "10:00 AM", "score": 85, "category": "Development" }
+    ],
+    "categoryDistribution": [
+      { "category": "Development", "count": 45, "percentage": 55 }
+    ],
+    "topVisitedDomains": [
+      { "domain": "github.com", "count": 142 }
+    ],
+    "sessionDurationDistribution": [
+      { "range": "5-15 mins", "count": 14 }
+    ],
+    "screenshotFrequency": [
+      { "time": "10:00", "count": 4 }
+    ]
+  }
 }
 ```

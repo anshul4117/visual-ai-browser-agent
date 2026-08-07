@@ -49,59 +49,18 @@ Persistent context for the AI coding agent. Updated after each phase.
 | Governance files (LICENSE, CONTRIBUTING, SECURITY, etc.) | ✅ Complete | 8 |
 | Request ID Tracking Middleware & Centralized Env Config | ✅ Complete | 8 |
 | Service Metrics Health Check Endpoint (`GET /api/health`) | ✅ Complete | 8 |
+| Web Dashboard Workspace (`apps/dashboard`) | ✅ Complete | 9 |
+| Backend Read-Only Dashboard Endpoints (`/api/dashboard/*`) | ✅ Complete | 9 |
+| React + Vite + Tailwind CSS + Recharts Visualization UI | ✅ Complete | 9 |
 
 ## File Ownership
 
 | Directory | Owner | Purpose |
 |-----------|-------|---------|
-| `apps/extension/src/background/` | Extension | Service worker, sync manager, tab listeners |
-| `apps/extension/src/content/` | Extension | DOM event capture (click, scroll, visibility) |
-| `apps/extension/src/visual/` | Extension | Throttled screenshot capture, image utils, scheduler |
-| `apps/extension/src/network/` | Extension | Network client (`client.ts`) for events, screenshots & AI analysis |
-| `apps/extension/src/messaging/` | Extension | Typed message protocol & StoredEvent model |
-| `apps/extension/src/storage/` | Extension | Event & screenshot offline storage queues |
-| `apps/extension/src/popup/` | Extension | UI controls, AI Insights card, category badge, score bar |
-| `apps/server/src/ai/` | Backend | Vision client, prompt builder, analysis & queue services |
-| `apps/server/src/config/` | Backend | Centralized env configuration & validation |
-| `apps/server/src/controllers/` | Backend | Ingestion controllers for events, screenshots, and AI analysis |
-| `apps/server/src/middleware/` | Backend | Request ID logger & global error handlers |
-| `apps/server/src/models/` | Backend | Mongoose models for `Event`, `Session`, `Screenshot`, `ScreenshotAnalysis` |
-| `apps/server/uploads/` | Backend | Local static storage for uploaded screenshot images |
+| `apps/extension/` | Extension | Service worker, sync manager, tab listeners, DOM event capture |
+| `apps/server/` | Backend | Ingestion controllers, database connection, dashboard endpoints, AI engine |
+| `apps/dashboard/` | Frontend | Web Dashboard pages (Overview, Sessions, Events, Screenshots, AI Insights, Analytics) |
 | `.github/` | CI/CD | GitHub Actions workflow, PR/Issue templates, CODEOWNERS |
-| `packages/shared-types/` | Shared | TypeScript interfaces |
+| `packages/shared-types/` | Shared | TypeScript interfaces & Dashboard API contracts |
 | `packages/shared-utils/` | Shared | Utility functions |
 | `docs/` | All | Documentation & Recruiter Demo Guide |
-
-## API Contracts
-
-Defined in: [docs/api-spec.md](api-spec.md)
-
-- `GET /api/health` — Enhanced server health check with service metrics
-- `POST /api/events` — Ingest single event
-- `POST /api/events/batch` — Ingest batch of events
-- `POST /api/screenshots` — Upload visual context screenshot image & metadata
-- `GET /api/screenshots` — Query screenshots by sessionId
-- `GET /api/screenshots/latest` — Fetch latest recorded screenshot
-- `GET /api/analysis/:screenshotId` — Get AI vision analysis for a screenshot
-- `GET /api/analysis/session/:sessionId` — Get AI vision analyses for a session
-- `POST /api/analysis/trigger/:screenshotId` — Trigger AI vision analysis for a screenshot
-
-## Database Contracts
-
-Defined in: [docs/database.md](database.md)
-
-- `events` collection (`EventModel`)
-- `sessions` collection (`SessionModel`)
-- `screenshots` collection (`ScreenshotModel`)
-- `screenshot_analyses` collection (`ScreenshotAnalysisModel`)
-
-## Known Assumptions
-
-1. Google Gemini Vision API (`gemini-2.5-flash`) is accessed via `GEMINI_API_KEY` env var.
-2. `MockVisionProvider` serves as an intelligent development fallback when `GEMINI_API_KEY` is not provided.
-3. Analyses run asynchronously in the background queue (`AnalysisQueueService`) without blocking HTTP uploads.
-
-## Known Limitations
-
-1. Chrome-only — no Firefox/Safari support in MVP
-2. OCR text extraction is deferred to future releases.
