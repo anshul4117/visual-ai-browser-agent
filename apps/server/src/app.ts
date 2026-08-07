@@ -6,6 +6,7 @@ import healthRouter from './routes/health.routes.js';
 import eventsRouter from './routes/events.routes.js';
 import screenshotsRouter from './routes/screenshots.routes.js';
 import analysisRouter from './routes/analysis.routes.js';
+import dashboardRouter from './routes/dashboard.routes.js';
 import { getUploadsDir } from './controllers/screenshots.controller.js';
 
 export function createApp(): Express {
@@ -17,7 +18,7 @@ export function createApp(): Express {
     cors({
       origin: corsOrigin,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
     })
   );
 
@@ -36,6 +37,7 @@ export function createApp(): Express {
   app.use('/api', eventsRouter);
   app.use('/api', screenshotsRouter);
   app.use('/api', analysisRouter);
+  app.use('/api/dashboard', dashboardRouter);
 
   // Root fallback
   app.get('/', (_req, res) => {

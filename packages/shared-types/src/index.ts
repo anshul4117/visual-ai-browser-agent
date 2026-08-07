@@ -2,7 +2,7 @@
  * @visual-ai/shared-types
  *
  * Shared TypeScript interfaces for the Visual AI Browser Agent.
- * These types are the contract between the Chrome extension and the backend server.
+ * These types are the contract between the Chrome extension, the Express server, and the Web Dashboard.
  *
  * All fields must match docs/database.md — do not add undocumented fields.
  */
@@ -89,6 +89,10 @@ export interface Session {
   endedAt: string | null;
   /** Session duration in milliseconds */
   duration: number;
+  /** Total events count in session */
+  eventCount?: number;
+  /** Last seen timestamp */
+  lastSeenAt?: string;
 }
 
 // ─── Screenshot / Visual Context ──────────────────────────────────────────────
@@ -195,7 +199,98 @@ export interface ApiErrorResponse {
  * Health check response for GET /api/health
  */
 export interface HealthCheckResponse {
-  status: 'ok' | 'error';
+  status: 'ok' | 'degraded' | 'error';
   timestamp: string;
   uptime: number;
+  version?: string;
+  environment?: string;
+  services?: {
+    database: 'connected' | 'in_memory_fallback';
+    queue?: {
+      queueLength: number;
+      isProcessing: boolean;
+    };
+    aiProvider?: string;
+  };
+}
+
+// ─── Dashboard Endpoints Contracts ───────────────────────────────────────────
+
+export interface EventsPerHourItem {
+  hour: string;
+  count: number;
+}
+
+export interface CategoryDistributionItem {
+  category: string;
+  count: number;
+  percentage: number;
+}
+
+export interface DomainActivityItem {
+  domain: string;
+  count: number;
+}
+
+export interface ProductivityTrendItem {
+  timestamp: string;
+  score: number;
+  category: string;
+}
+
+export interface DashboardOverviewData {
+  totalSessions: number;
+  totalEvents: number;
+  totalScreenshots: number;
+  totalAnalyses: number;
+  activeSyncStatus: boolean;
+  databaseStatus: 'connected' | 'in_memory_fallback';
+  aiProviderStatus: string;
+  averageProductivityScore: number;
+  eventsPerHour: EventsPerHourItem[];
+  topCategories: CategoryDistributionItem[];
+}
+
+export interface DashboardOverviewResponse {
+  success: true;
+  data: DashboardOverviewData;
+}
+
+export interface DashboardSessionsResponse {
+  success: true;
+  data: Session[];
+  total: number;
+}
+
+export interface DashboardEventsResponse {
+  success: true;
+  data: ActivityEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ScreenshotWithAnalysis extends ScreenshotRecord {
+  analysis?: ScreenshotAnalysisRecord | null;
+}
+
+export interface DashboardScreenshotsResponse {
+  success: true;
+  data: ScreenshotWithAnalysis[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface DashboardAnalyticsData {
+  productivityTrend: ProductivityTrendItem[];
+  categoryDistribution: CategoryDistributionItem[];
+  topVisitedDomains: DomainActivityItem[];
+  sessionDurationDistribution: Array<{ range: string; count: number }>;
+  screenshotFrequency: Array<{ time: string; count: number }>;
+}
+
+export interface DashboardAnalyticsResponse {
+  success: true;
+  data: DashboardAnalyticsData;
 }

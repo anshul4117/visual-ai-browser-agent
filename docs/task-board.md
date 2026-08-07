@@ -103,3 +103,15 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] Request ID middleware (`x-request-id`) in logger middleware
 - [x] Enhanced health check endpoint (`GET /api/health`) with MongoDB, Queue, and AI status
 - [x] Recruiter Demo Guide (`docs/demo.md`) with 3-minute script & technical interview Q&A
+
+## Phase 9 — Recruiter Web Dashboard ✅
+
+- [x] Workspace setup (`apps/dashboard`) using React, Vite, TypeScript, Tailwind CSS
+- [x] Backend read-only dashboard endpoints (`/api/dashboard/*`)
+- [x] Overview page with system metrics, hourly event activity chart, and category share
+- [x] Sessions page with duration, event counts, and interactive session timeline drawer
+- [x] Events Log page with URL search, event type filtering, and paginated table
+- [x] Visual Captures page with responsive gallery grid, thumbnail previews, and Lightbox modal
+- [x] AI Vision Insights page with Gemini evaluation cards, confidence badges, and score bar
+- [x] Analytics page with Recharts productivity trends, top domain bar chart, and session distribution
+- [x] Dark mode UI design with loading skeletons, error boundaries, and empty state handlers
