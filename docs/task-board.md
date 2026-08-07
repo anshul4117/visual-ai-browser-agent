@@ -115,3 +115,13 @@ Master checklist for the Visual AI Browser Agent project.
 - [x] AI Vision Insights page with Gemini evaluation cards, confidence badges, and score bar
 - [x] Analytics page with Recharts productivity trends, top domain bar chart, and session distribution
 - [x] Dark mode UI design with loading skeletons, error boundaries, and empty state handlers
+
+## Phase 10 — Deployment & Live Demo Infrastructure ✅
+
+- [x] Vercel SPA deployment configuration (`vercel.json`) with client routing rewrites
+- [x] Render web service deployment blueprint (`render.yaml`)
+- [x] MongoDB Atlas production connection setup and pooling
+- [x] Production environment templates (`.env.production.example` & `.env.example`)
+- [x] Production security headers with Helmet, Gzip compression, and rate limiting
+- [x] GitHub Actions CI/CD deployment readiness validation pipeline
+- [x] Public live demo URLs and 60-second recruiter onboarding guide in README & demo.md
