@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import { copyFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -48,6 +48,9 @@ async function build(): Promise<void> {
     minify: isMinify,
   });
 
+  // Also build popup.js in root dist for convenience
+  copyFileSync(join(outdir, 'popup', 'popup.js'), join(outdir, 'popup.js'));
+
   // 4. Copy static files
   copyFileSync(
     join(srcDir, 'manifest.json'),
@@ -60,6 +63,14 @@ async function build(): Promise<void> {
   copyFileSync(
     join(srcDir, 'popup', 'popup.css'),
     join(outdir, 'popup', 'popup.css')
+  );
+  copyFileSync(
+    join(srcDir, 'popup', 'popup.html'),
+    join(outdir, 'popup.html')
+  );
+  copyFileSync(
+    join(srcDir, 'popup', 'popup.css'),
+    join(outdir, 'popup.css')
   );
 
   console.log('✅ Extension built successfully → dist/');
